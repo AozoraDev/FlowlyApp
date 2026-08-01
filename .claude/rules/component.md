@@ -8,8 +8,6 @@
 - 一次性简单布局可写 className；超约 10 个类或含多行平台分支时拆组件
 - 不改 `components/ui/*` 公共接口迁就单页，用变体或业务组件包装
 
-## 示例
-
 ```tsx
 // 好：Button 表达意图，语义清晰
 <Button variant="outline" size="sm" onPress={handleFollow}>

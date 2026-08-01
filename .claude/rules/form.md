@@ -9,8 +9,6 @@
 - **回填用 useQuery**：编辑场景 query 拉初始数据回填，读写分离
 - 底层网络遵守 [rule: network](network.md)
 
-## 示例
-
 ```tsx
 const mutation = useMutation({
   mutationFn: (values: SignUp) =>
