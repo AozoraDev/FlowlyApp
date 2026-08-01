@@ -4,7 +4,7 @@
     "slug": "FlowlyApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/imgs/logo.png",
     "scheme": "flowlyapp",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
@@ -15,7 +15,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/imgs/logo.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.aozoradev.FlowlyApp"
@@ -47,6 +47,6 @@
         "projectId": "fb75e08c-bffd-4cc8-8257-dca531a2be50"
       }
     },
-    "owner": "jackchiang233"
+    "owner": "AozoraDev"
   }
 }
