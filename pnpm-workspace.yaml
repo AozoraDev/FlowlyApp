@@ -1,0 +1,5 @@
+# pnpm v11 配置（package.json 的 pnpm 字段已不再读取）
+# 钉住 SDK 56 版本，消除 expo-router / expo-symbols 的 peer 依赖重复
+overrides:
+  '@expo/log-box': 56.0.14
+  expo-font: 56.0.7
