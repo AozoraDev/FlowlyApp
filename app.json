@@ -17,7 +17,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.aozoradev.FlowlyApp"
     },
     "web": {
       "bundler": "metro",
@@ -43,8 +44,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "aa99ab09-2717-456a-9df5-d41b1b5a71c9"
+        "projectId": "fb75e08c-bffd-4cc8-8257-dca531a2be50"
       }
-    }
+    },
+    "owner": "jackchiang233"
   }
 }
