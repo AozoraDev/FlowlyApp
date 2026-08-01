@@ -16,16 +16,16 @@ Flowly 是一个基于 **Expo SDK 56** 与 **React Native Reusables** 构建的�
 
 ## 🧰 技术栈
 
-| 类别 | 选型 |
-| --- | --- |
-| 框架 | [Expo](https://docs.expo.dev/) SDK 56 + [Expo Router](https://expo.dev/router)（文件路由，typed routes） |
-| UI | [React Native Reusables](https://reactnativereusables.com)（shadcn 风格）+ [Nativewind v4](https://www.nativewind.dev/)（Tailwind for RN） |
-| 后端 | [Supabase](https://supabase.com/)（`@supabase/supabase-js`，Auth + Postgres + RLS） |
-| 数据请求 | [TanStack Query](https://tanstack.com/query/latest) v5（查询缓存 / mutation） |
-| 表单 | [TanStack Form](https://tanstack.com/form/latest) + [Zod](https://zod.dev/)（schema 即校验规则与类型来源） |
-| 国际化 | i18next + react-i18next（zh / en，类型推导的文案 key） |
-| 图标 | [Lucide React Native](https://lucide.dev/) |
-| 其他 | AsyncStorage（会话 / 语言偏好）、expo-localization、react-native-reanimated |
+| 类别     | 选型                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 框架     | [Expo](https://docs.expo.dev/) SDK 56 + [Expo Router](https://expo.dev/router)（文件路由，typed routes）                                   |
+| UI       | [React Native Reusables](https://reactnativereusables.com)（shadcn 风格）+ [Nativewind v4](https://www.nativewind.dev/)（Tailwind for RN） |
+| 后端     | [Supabase](https://supabase.com/)（`@supabase/supabase-js`，Auth + Postgres + RLS）                                                        |
+| 数据请求 | [TanStack Query](https://tanstack.com/query/latest) v5（查询缓存 / mutation）                                                              |
+| 表单     | [TanStack Form](https://tanstack.com/form/latest) + [Zod](https://zod.dev/)（schema 即校验规则与类型来源）                                 |
+| 国际化   | i18next + react-i18next（zh / en，类型推导的文案 key）                                                                                     |
+| 图标     | [Lucide React Native](https://lucide.dev/)                                                                                                 |
+| 其他     | AsyncStorage（会话 / 语言偏好）、expo-localization、react-native-reanimated                                                                |
 
 ## 🚀 快速开始
 

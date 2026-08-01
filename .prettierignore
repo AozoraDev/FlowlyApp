@@ -1,0 +1,10 @@
+# 依赖与构建产物
+node_modules/
+.expo/
+dist/
+
+# 锁文件与生成文件（机器生成，不纳入格式门禁）
+pnpm-lock.yaml
+expo-env.d.ts
+nativewind-env.d.ts
+components.json

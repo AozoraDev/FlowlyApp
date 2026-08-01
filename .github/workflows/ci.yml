@@ -1,0 +1,36 @@
+name: CI
+
+# push 到 main 与所有 PR 都跑一遍质量门禁
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 安装 pnpm（版本与本机 lockfile 一致）
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # frozen-lockfile：依赖必须与 pnpm-lock.yaml 完全一致，防漂移
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Format check
+        run: pnpm format:check

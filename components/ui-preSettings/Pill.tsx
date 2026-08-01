@@ -55,7 +55,17 @@ interface PillProps extends PressableProps, VariantProps<typeof pillVariants> {
 }
 
 // 胶囊按钮：形状与配色由预设接管，disabled 自动置灰；选中态切换等业务逻辑由调用方负责
-function Pill({ icon, label, variant, className, disabled, style, onPressIn, onPressOut, ...props }: PillProps) {
+function Pill({
+  icon,
+  label,
+  variant,
+  className,
+  disabled,
+  style,
+  onPressIn,
+  onPressOut,
+  ...props
+}: PillProps) {
   // 按压缩放反馈：与 active:opacity-70 的透明度反馈叠加，胶囊按压更有"弹"感
   const press = usePressScale();
 

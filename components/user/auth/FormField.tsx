@@ -32,7 +32,7 @@ function FormField({ label, error, icon, ...inputProps }: FormFieldProps) {
       <Input
         key={inputProps.placeholder}
         {...inputProps}
-        className="rounded-2xl border-black text-center native:py-0 native:leading-5 native:text-sm text-sm"
+        className="native:py-0 native:leading-5 native:text-sm rounded-2xl border-black text-center text-sm"
       />
       {error && <Text className="text-xs text-destructive">{error}</Text>}
     </View>

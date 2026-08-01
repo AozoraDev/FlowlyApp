@@ -13,10 +13,14 @@
 
 ```tsx
 const mutation = useMutation({
-  mutationFn: (values: SignUp) => fetch(`${API_BASE}/signup`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(values),
-  }).then(async res => { if (!res.ok) throw new Error(await res.text()); }),
+  mutationFn: (values: SignUp) =>
+    fetch(`${API_BASE}/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(values),
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+    }),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: ['me'] }),
 });
 

@@ -13,8 +13,7 @@ export default function NotLogin() {
     <ImageBackground
       source={require('../assets/imgs/background.png')}
       resizeMode="cover"
-      className="flex-1"
-    >
+      className="flex-1">
       {/* px-8 给整体左右留白：Divider 为 w-full，留白放父容器才能把线收窄 */}
       <View className="flex-1 items-center justify-center px-8">
         <Text className="font-semibold" style={{ color: '#155dfc', fontSize: 30, lineHeight: 36 }}>

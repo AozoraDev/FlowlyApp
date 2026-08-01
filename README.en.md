@@ -16,16 +16,16 @@ Transactions are organized around **sections (projects)**: each section can hold
 
 ## 🧰 Tech Stack
 
-| Category | Choice |
-| --- | --- |
-| Framework | [Expo](https://docs.expo.dev/) SDK 56 + [Expo Router](https://expo.dev/router) (file-based routing, typed routes) |
-| UI | [React Native Reusables](https://reactnativereusables.com) (shadcn-style) + [Nativewind v4](https://www.nativewind.dev/) (Tailwind for RN) |
-| Backend | [Supabase](https://supabase.com/) (`@supabase/supabase-js`, Auth + Postgres + RLS) |
-| Data fetching | [TanStack Query](https://tanstack.com/query/latest) v5 (query cache / mutations) |
-| Forms | [TanStack Form](https://tanstack.com/form/latest) + [Zod](https://zod.dev/) (schema as the single source of validation rules and types) |
-| i18n | i18next + react-i18next (zh / en, type-inferred translation keys) |
-| Icons | [Lucide React Native](https://lucide.dev/) |
-| Other | AsyncStorage (session / language preference), expo-localization, react-native-reanimated |
+| Category      | Choice                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Framework     | [Expo](https://docs.expo.dev/) SDK 56 + [Expo Router](https://expo.dev/router) (file-based routing, typed routes)                          |
+| UI            | [React Native Reusables](https://reactnativereusables.com) (shadcn-style) + [Nativewind v4](https://www.nativewind.dev/) (Tailwind for RN) |
+| Backend       | [Supabase](https://supabase.com/) (`@supabase/supabase-js`, Auth + Postgres + RLS)                                                         |
+| Data fetching | [TanStack Query](https://tanstack.com/query/latest) v5 (query cache / mutations)                                                           |
+| Forms         | [TanStack Form](https://tanstack.com/form/latest) + [Zod](https://zod.dev/) (schema as the single source of validation rules and types)    |
+| i18n          | i18next + react-i18next (zh / en, type-inferred translation keys)                                                                          |
+| Icons         | [Lucide React Native](https://lucide.dev/)                                                                                                 |
+| Other         | AsyncStorage (session / language preference), expo-localization, react-native-reanimated                                                   |
 
 ## 🚀 Quick Start
 

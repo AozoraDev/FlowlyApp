@@ -16,8 +16,7 @@ async function getStorageAdapter() {
   if (Platform.OS === 'web') return undefined;
 
   // 动态导入避免 web 打包时报模块缺失
-  const AsyncStorage = (await import('@react-native-async-storage/async-storage'))
-    .default;
+  const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
 
   return {
     getItem: (key: string) => AsyncStorage.getItem(key),

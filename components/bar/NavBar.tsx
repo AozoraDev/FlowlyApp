@@ -15,7 +15,11 @@ function NavBar() {
     <SafeAreaView edges={['top']} className="bg-[#264778]">
       <View className="h-14 flex-row items-center justify-between px-5">
         <Pressable onPress={goHome} className="flex-row items-center gap-2">
-          <Image source={require('../../assets/imgs/logo.png')} className="h-7 w-7" resizeMode="contain" />
+          <Image
+            source={require('../../assets/imgs/logo.png')}
+            className="h-7 w-7"
+            resizeMode="contain"
+          />
           <Text className="text-xl font-bold text-white">Flowly</Text>
         </Pressable>
         <LanguageToggle />

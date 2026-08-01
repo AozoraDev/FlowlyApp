@@ -78,9 +78,7 @@ export async function getSectionSummary(userId: string, sectionId: number) {
  * 批量用 z.array 解析，比逐行 parse 更快更简洁
  */
 export async function getSectionSummaries(userId: string) {
-  const { data, error } = await (
-    await supabase()
-  ).rpc('get_section_summaries', { p_uid: userId });
+  const { data, error } = await (await supabase()).rpc('get_section_summaries', { p_uid: userId });
 
   if (error) throw error;
   return sectionSummaryRowSchema.array().parse(data ?? []);

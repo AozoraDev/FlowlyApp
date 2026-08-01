@@ -11,7 +11,7 @@
 ## 示例
 
 ```ts
-const profile = profileSchema.parse(data);           // 边界解析，类型贯穿内部
+const profile = profileSchema.parse(data); // 边界解析，类型贯穿内部
 const result = signUpSchema.safeParse({ email, password });
-if (!result.success) return result.error.issues;     // 用户输入拿字段级错误
+if (!result.success) return result.error.issues; // 用户输入拿字段级错误
 ```

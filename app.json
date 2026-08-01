@@ -7,9 +7,7 @@
     "icon": "./assets/imgs/logo.png",
     "scheme": "flowlyapp",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },

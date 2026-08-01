@@ -5,7 +5,6 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
-
 // 预设内部接管文字颜色（Icon/Text 强制白色），调用方只需传入图标与文案，无需重复书写样式。
 interface BrandButtonProps extends ButtonProps {
   // 可选前置图标

@@ -71,7 +71,9 @@ export default function SectionDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!session?.user.id) return;
-      queryClient.invalidateQueries({ queryKey: ['itemSummary', session.user.id, sectionIdNumber] });
+      queryClient.invalidateQueries({
+        queryKey: ['itemSummary', session.user.id, sectionIdNumber],
+      });
     }, [session?.user.id, sectionIdNumber])
   );
 

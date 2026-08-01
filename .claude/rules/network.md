@@ -5,6 +5,6 @@
 ## 示例
 
 ```ts
-const res = await fetch(`${API_BASE}/user`, { headers: { Authorization: `Bearer ${token}` } })
-const data = await res.json()
+const res = await fetch(`${API_BASE}/user`, { headers: { Authorization: `Bearer ${token}` } });
+const data = await res.json();
 ```
