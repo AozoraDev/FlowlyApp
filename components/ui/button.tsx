@@ -1,7 +1,12 @@
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+import { usePressScale } from '@/lib/usePressScale';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Platform, Pressable } from 'react-native';
+import Animated from 'react-native-reanimated';
+
+// 用 Reanimated 包一层 Pressable，才能把弹簧缩放动画接到按压缩放上
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const buttonVariants = cva(
   cn(
@@ -90,11 +95,23 @@ const buttonTextVariants = cva(
 
 type ButtonProps = React.ComponentProps<typeof Pressable> & React.RefAttributes<typeof Pressable> & VariantProps<typeof buttonVariants>;
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+function Button({ className, variant, size, style, onPressIn, onPressOut, ...props }: ButtonProps) {
+  // 按压缩放反馈：按下缩小、松手回弹，与 active:bg-* 的瞬时换色叠加
+  const press = usePressScale();
+
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
-      <Pressable
+      <AnimatedPressable
         className={cn(props.disabled && 'opacity-50', buttonVariants({ variant, size }), className)}
+        style={[press.style, style]}
+        onPressIn={(e) => {
+          press.onPressIn();
+          onPressIn?.(e);
+        }}
+        onPressOut={(e) => {
+          press.onPressOut();
+          onPressOut?.(e);
+        }}
         role="button"
         {...props}
       />
