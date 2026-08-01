@@ -105,7 +105,9 @@ export default function CreateItemScreen() {
     },
     onSuccess: () => {
       toast.success(t('home.itemCreateSuccess'));
+      // 刷新该项目的明细分页列表与整区收支汇总，确保 SummaryCard 即时更新
       queryClient.invalidateQueries({ queryKey: ['items', userId, sectionIdNumber] });
+      queryClient.invalidateQueries({ queryKey: ['itemSummary', userId, sectionIdNumber] });
       router.back();
     },
     onError: (err) => {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Plus } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -66,6 +66,14 @@ export default function SectionDetailScreen() {
     },
     enabled: !!session,
   });
+
+  // 每次回到明细页刷新整区汇总：新建/编辑明细页返回后，让顶部 SummaryCard 同步更新
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user.id) return;
+      queryClient.invalidateQueries({ queryKey: ['itemSummary', session.user.id, sectionIdNumber] });
+    }, [session?.user.id, sectionIdNumber])
+  );
 
   // 删除单条明细：确认弹窗通过后由 mutation 删除，成功后刷新列表（前缀覆盖全部分页）与整区汇总并提示
   const deleteMutation = useMutation({
