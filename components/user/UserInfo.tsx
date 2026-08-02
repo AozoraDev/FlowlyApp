@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { LogOut } from 'lucide-react-native';
+import { LogOut, Settings2 } from 'lucide-react-native';
+import { router } from 'expo-router';
 import type { User } from '@supabase/supabase-js';
 import { useTranslation } from 'react-i18next';
 
+import { useClearModelConfig } from '@/ai/hooks/useClearModelConfig';
+import { useModelConfig } from '@/ai/hooks/useModelConfig';
 import { UserDetailCard } from '@/components/user/UserDetailCard';
 import { UserHeaderCard } from '@/components/user/UserHeaderCard';
 import { BrandButton } from '@/components/ui-preSettings/Button';
@@ -35,10 +38,19 @@ function UserInfo({ user }: UserInfoProps) {
     })();
   }, [user.id]);
 
-  // 退出登录：signOut 触发 onAuthStateChange，user 页自动切回登录界面
+  // 退出登录：先清模型配置（本地存储 + 内存缓存一并清除，与「清除配置」同一逻辑），
+  // 再 signOut 触发 onAuthStateChange，user 页自动切回登录界面；任一步失败都不阻断整体流程
+  const clearConfig = useClearModelConfig();
   const handleLogout = () => {
-    void signOut().catch(() => {});
+    void (async () => {
+      await clearConfig.mutateAsync(undefined).catch(() => {});
+      await signOut().catch(() => {});
+    })();
   };
+
+  // 当前已配置模型：存在时在邮箱下方追加一行「模型 → 名称」。复用配置页同一 hook，
+  // 保存/清除配置后 invalidateQueries 会自动同步到这里，无需手动刷新
+  const { data: modelConfig } = useModelConfig();
 
   // 显示名：优先用户名 → 邮箱前缀 → 兜底「游客」
   const displayName = profile?.username ?? user.email?.split('@')[0] ?? t('user.guest');
@@ -62,8 +74,21 @@ function UserInfo({ user }: UserInfoProps) {
         memberSinceLabel={`${t('user.memberSince')} · ${joinedLabel}`}
       />
 
-      {/* 详细信息卡片：邮箱 */}
-      <UserDetailCard label={t('user.email')} value={user.email ?? '—'} />
+      {/* 详细信息卡片：邮箱始终展示，已成功配置模型时在同一张卡片内追加「模型 → 当前模型名」一行 */}
+      <UserDetailCard
+        rows={[
+          { label: t('user.email'), value: user.email ?? '—' },
+          ...(modelConfig ? [{ label: t('user.modelLabel'), value: modelConfig.model }] : []),
+        ]}
+      />
+
+      {/* 配置模型：已配置时进模型信息页（可查看/清除），未配置时进模型配置页填写 */}
+      <BrandButton
+        icon={Settings2}
+        label={t('user.configureModel')}
+        className="mt-4"
+        onPress={() => router.push(modelConfig ? '/model-info' : '/model-config')}
+      />
 
       {/* 退出登录：使用品牌蓝按钮预设 */}
       <BrandButton icon={LogOut} label={t('user.logout')} className="mt-4" onPress={handleLogout} />

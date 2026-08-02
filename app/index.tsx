@@ -169,7 +169,7 @@ export default function Index() {
         // 列表顶部入口：左侧品牌蓝「项目总览」标题，右侧小号「添加项目」按钮，点击跳转新建项目页
         ListHeaderComponent={
           <View className="flex-row items-center justify-between px-2">
-            <Text className="text-2xl font-semibold text-brand">{t('home.projectOverview')}</Text>
+            <Text className="text-xl font-semibold text-brand">{t('home.projectOverview')}</Text>
             <BrandButton
               size="sm"
               icon={Plus}

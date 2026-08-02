@@ -7,12 +7,13 @@ import { ActivityIndicator, View } from 'react-native';
 import { z } from 'zod';
 
 import { BrandButton } from '@/components/ui-preSettings/Button';
+import { FormField } from '@/components/ui-preSettings/FormField';
 import { GlassCard } from '@/components/ui-preSettings/GlassCard';
+import { PageHeader } from '@/components/ui-preSettings/PageHeader';
 import { ScreenBackground } from '@/components/ui-preSettings/ScreenBackground';
 import { useAppToast } from '@/components/ui-preSettings/Toast';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -84,31 +85,27 @@ export default function CreateSectionScreen() {
       <GlassCard className="py-3">
         <CardContent>
           {/* 头部：绿色图标徽标 + 标题 + 一句说明，让用户一眼清楚当前操作意图 */}
-          <View className="items-center">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-success-soft">
-              <Icon as={FolderPlus} size={26} className="text-success" />
-            </View>
-            <Text variant="h2" className="mt-4 border-b-0 text-center text-brand">
-              {t('home.createDialogTitle')}
-            </Text>
-            <Text className="mt-1 text-center text-sm text-muted-foreground">
-              {t('home.createDialogDesc')}
-            </Text>
-          </View>
+          <PageHeader
+            icon={FolderPlus}
+            title={t('home.createDialogTitle')}
+            desc={t('home.createDialogDesc')}
+            badgeClassName="bg-success-soft"
+            iconClassName="text-success"
+            titleVariant="h3"
+            descClassName="text-xs"
+          />
 
           {/* 名称输入 + 字段级错误：失焦或提交过后才展示错误，避免初始渲染直接闪出「必填」 */}
           <form.Subscribe selector={(s) => s.isSubmitted}>
             {(isSubmitted) => (
               <form.Field name="describe">
                 {(field) => (
-                  <View className="mt-6 gap-1.5">
-                    {/* 标签行：左侧「名称」，右侧实时字符计数（当前/上限），一眼看清剩余可输入量 */}
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-medium">{t('home.nameLabel')}</Text>
-                      <Text className="text-xs tabular-nums text-muted-foreground">
-                        {field.state.value.length}/20
-                      </Text>
-                    </View>
+                  <FormField
+                    label={t('home.nameLabel')}
+                    charCount={{ value: field.state.value, max: 20 }}
+                    showError={field.state.meta.isTouched || isSubmitted}
+                    errors={field.state.meta.errors}
+                    className="mt-6">
                     <Input
                       value={field.state.value}
                       onChangeText={field.handleChange}
@@ -117,23 +114,7 @@ export default function CreateSectionScreen() {
                       maxLength={20}
                       editable={!mutation.isPending}
                     />
-                    {field.state.meta.isTouched || isSubmitted
-                      ? field.state.meta.errors.map((err) => {
-                          // 运行期 zod 标准 schema 的错误是「message 字符串（i18n key）」，类型推断为 issue 对象，兼容两种形态
-                          const msg =
-                            typeof err === 'string'
-                              ? err
-                              : err && typeof err === 'object'
-                                ? err.message
-                                : undefined;
-                          return msg ? (
-                            <Text key={msg} className="text-xs text-destructive">
-                              {t(msg)}
-                            </Text>
-                          ) : null;
-                        })
-                      : null}
-                  </View>
+                  </FormField>
                 )}
               </form.Field>
             )}

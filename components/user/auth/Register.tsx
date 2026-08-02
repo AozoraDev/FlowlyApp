@@ -7,12 +7,13 @@ import { z } from 'zod';
 
 import { BrandButton } from '@/components/ui-preSettings/Button';
 import { Divider } from '@/components/ui-preSettings/Divider';
+import { FormField } from '@/components/ui-preSettings/FormField';
 import { ScreenBackground } from '@/components/ui-preSettings/ScreenBackground';
 import { useAppToast } from '@/components/ui-preSettings/Toast';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { FormField } from '@/components/user/auth/FormField';
+import { AuthInput } from '@/components/user/auth/AuthInput';
 import { SendCodeButton } from '@/components/user/auth/SendCodeButton';
 import { sendOtp, updatePassword, verifyOtp } from '@/supabase/auth';
 
@@ -96,17 +97,6 @@ function Register({ onSwitchToLogin }: RegisterProps) {
     }
   };
 
-  // 字段错误提取：失焦或提交过后才取首个错误并翻译（schema 的 message 即 i18n key）。
-  // 运行期 zod 标准 schema 的错误是「message 字符串」，但类型推断为 issue 对象，这里兼容两种形态
-  const getFieldError = (
-    meta: { isTouched: boolean; errors: readonly (string | { message: string } | undefined)[] },
-    isSubmitted: boolean
-  ) => {
-    if (!(meta.isTouched || isSubmitted)) return undefined;
-    const first = meta.errors[0];
-    return first ? t(typeof first === 'string' ? first : first.message) : undefined;
-  };
-
   return (
     // 复用全屏预设背景；内边距交由 ScrollView 的 contentContainer 控制，故关闭 withPadding
     <ScreenBackground withPadding={false}>
@@ -127,7 +117,7 @@ function Register({ onSwitchToLogin }: RegisterProps) {
           <Text className="text-brand">{t('auth.registerSubtitle')}</Text>
         </View>
 
-        <View className="mt-8 gap-4">
+        <View className="mt-8 gap-3">
           {/* 邮箱/密码/验证码输入 + 字段级错误：失焦或提交过后才展示，避免初始渲染直接闪出提示 */}
           <form.Subscribe selector={(s) => s.isSubmitted}>
             {(isSubmitted) => (
@@ -138,18 +128,23 @@ function Register({ onSwitchToLogin }: RegisterProps) {
                   {(field) => (
                     <FormField
                       icon={Mail}
+                      iconClassName="text-brand"
+                      labelClassName="text-brand"
                       label={t('auth.email')}
-                      value={field.state.value}
-                      onChangeText={field.handleChange}
-                      onBlur={field.handleBlur}
-                      placeholder={t('auth.emailPlaceholder')}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      textContentType="emailAddress"
-                      editable={!mutation.isPending}
-                      error={getFieldError(field.state.meta, isSubmitted)}
-                    />
+                      showError={field.state.meta.isTouched || isSubmitted}
+                      errors={field.state.meta.errors}>
+                      <AuthInput
+                        value={field.state.value}
+                        onChangeText={field.handleChange}
+                        onBlur={field.handleBlur}
+                        placeholder={t('auth.emailPlaceholder')}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        textContentType="emailAddress"
+                        editable={!mutation.isPending}
+                      />
+                    </FormField>
                   )}
                 </form.Field>
 
@@ -159,18 +154,23 @@ function Register({ onSwitchToLogin }: RegisterProps) {
                   {(field) => (
                     <FormField
                       icon={Lock}
+                      iconClassName="text-brand"
+                      labelClassName="text-brand"
                       label={t('auth.password')}
-                      value={field.state.value}
-                      onChangeText={field.handleChange}
-                      onBlur={field.handleBlur}
-                      placeholder={t('auth.passwordPlaceholder')}
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoComplete="new-password"
-                      textContentType="newPassword"
-                      editable={!mutation.isPending}
-                      error={getFieldError(field.state.meta, isSubmitted)}
-                    />
+                      showError={field.state.meta.isTouched || isSubmitted}
+                      errors={field.state.meta.errors}>
+                      <AuthInput
+                        value={field.state.value}
+                        onChangeText={field.handleChange}
+                        onBlur={field.handleBlur}
+                        placeholder={t('auth.passwordPlaceholder')}
+                        secureTextEntry
+                        autoCapitalize="none"
+                        autoComplete="new-password"
+                        textContentType="newPassword"
+                        editable={!mutation.isPending}
+                      />
+                    </FormField>
                   )}
                 </form.Field>
 
@@ -178,17 +178,22 @@ function Register({ onSwitchToLogin }: RegisterProps) {
                   {(field) => (
                     <FormField
                       icon={KeyRound}
+                      iconClassName="text-brand"
+                      labelClassName="text-brand"
                       label={t('auth.verificationCode')}
-                      value={field.state.value}
-                      onChangeText={field.handleChange}
-                      onBlur={field.handleBlur}
-                      placeholder={t('auth.codePlaceholder')}
-                      keyboardType="number-pad"
-                      maxLength={8}
-                      autoCapitalize="none"
-                      editable={!mutation.isPending}
-                      error={getFieldError(field.state.meta, isSubmitted)}
-                    />
+                      showError={field.state.meta.isTouched || isSubmitted}
+                      errors={field.state.meta.errors}>
+                      <AuthInput
+                        value={field.state.value}
+                        onChangeText={field.handleChange}
+                        onBlur={field.handleBlur}
+                        placeholder={t('auth.codePlaceholder')}
+                        keyboardType="number-pad"
+                        maxLength={8}
+                        autoCapitalize="none"
+                        editable={!mutation.isPending}
+                      />
+                    </FormField>
                   )}
                 </form.Field>
               </>

@@ -16,7 +16,7 @@ const Input = React.forwardRef<
     <TextInput
       ref={ref}
       className={cn(
-        'native:h-12 native:py-0 native:text-lg native:leading-[1.2] h-10 w-full rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground web:flex web:items-center web:py-0 web:text-sm web:leading-6',
+        'native:h-11 native:py-0 native:text-base native:leading-[1.2] h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground web:flex web:items-center web:py-0 web:text-sm web:leading-6',
         className
       )}
       // 原生端垂直居中：
