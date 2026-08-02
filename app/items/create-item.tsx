@@ -7,7 +7,9 @@ import { ActivityIndicator, View } from 'react-native';
 import { z } from 'zod';
 
 import { BrandButton } from '@/components/ui-preSettings/Button';
+import { FormField } from '@/components/ui-preSettings/FormField';
 import { GlassCard } from '@/components/ui-preSettings/GlassCard';
+import { PageHeader } from '@/components/ui-preSettings/PageHeader';
 import { ScreenBackground } from '@/components/ui-preSettings/ScreenBackground';
 import { useAppToast } from '@/components/ui-preSettings/Toast';
 import { Button } from '@/components/ui/button';
@@ -148,32 +150,28 @@ export default function CreateItemScreen() {
       <GlassCard className="py-3">
         <CardContent>
           {/* 头部：图标徽标 + 标题 + 一句说明，让用户一眼清楚当前操作意图 */}
-          <View className="items-center">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-success-soft">
-              <Icon as={WalletCards} size={26} className="text-success" />
-            </View>
-            <Text variant="h2" className="mt-4 border-b-0 text-center text-brand">
-              {t('home.createItemTitle')}
-            </Text>
-            <Text className="mt-1 text-center text-sm text-muted-foreground">
-              {t('home.createItemDesc')}
-            </Text>
-          </View>
+          <PageHeader
+            icon={WalletCards}
+            title={t('home.createItemTitle')}
+            desc={t('home.createItemDesc')}
+            badgeClassName="bg-success-soft"
+            iconClassName="text-success"
+            titleVariant="h3"
+            descClassName="text-xs"
+          />
 
           {/* 字段区：名称 → 支出/收入 → 金额，自上而下；失焦或提交过后才展示字段级错误 */}
           <form.Subscribe selector={(s) => s.isSubmitted}>
             {(isSubmitted) => (
-              <View className="mt-6 gap-4">
+              <View className="mt-6 gap-3">
                 {/* 名称：实时字符计数（当前/上限）+ 字段级错误提示 */}
                 <form.Field name="reason">
                   {(field) => (
-                    <View className="gap-1.5">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm font-medium">{t('home.nameLabel')}</Text>
-                        <Text className="text-xs tabular-nums text-muted-foreground">
-                          {field.state.value.length}/50
-                        </Text>
-                      </View>
+                    <FormField
+                      label={t('home.nameLabel')}
+                      charCount={{ value: field.state.value, max: 50 }}
+                      showError={field.state.meta.isTouched || isSubmitted}
+                      errors={field.state.meta.errors}>
                       <Input
                         value={field.state.value}
                         onChangeText={field.handleChange}
@@ -182,23 +180,7 @@ export default function CreateItemScreen() {
                         maxLength={50}
                         editable={!mutation.isPending}
                       />
-                      {field.state.meta.isTouched || isSubmitted
-                        ? field.state.meta.errors.map((err) => {
-                            // 运行期 zod 标准 schema 的错误是「message 字符串（i18n key）」，类型推断为 issue 对象，兼容两种形态
-                            const msg =
-                              typeof err === 'string'
-                                ? err
-                                : err && typeof err === 'object'
-                                  ? err.message
-                                  : undefined;
-                            return msg ? (
-                              <Text key={msg} className="text-xs text-destructive">
-                                {t(msg)}
-                              </Text>
-                            ) : null;
-                          })
-                        : null}
-                    </View>
+                    </FormField>
                   )}
                 </form.Field>
 
@@ -232,8 +214,10 @@ export default function CreateItemScreen() {
                 {/* 金额：数字键盘输入，失焦/提交后展示校验错误 */}
                 <form.Field name="amount">
                   {(field) => (
-                    <View className="gap-1.5">
-                      <Text className="text-sm font-medium">{t('home.amountLabel')}</Text>
+                    <FormField
+                      label={t('home.amountLabel')}
+                      showError={field.state.meta.isTouched || isSubmitted}
+                      errors={field.state.meta.errors}>
                       <Input
                         value={field.state.value}
                         onChangeText={field.handleChange}
@@ -243,23 +227,7 @@ export default function CreateItemScreen() {
                         maxLength={12}
                         editable={!mutation.isPending}
                       />
-                      {field.state.meta.isTouched || isSubmitted
-                        ? field.state.meta.errors.map((err) => {
-                            // 运行期 zod 标准 schema 的错误是「message 字符串（i18n key）」，类型推断为 issue 对象，兼容两种形态
-                            const msg =
-                              typeof err === 'string'
-                                ? err
-                                : err && typeof err === 'object'
-                                  ? err.message
-                                  : undefined;
-                            return msg ? (
-                              <Text key={msg} className="text-xs text-destructive">
-                                {t(msg)}
-                              </Text>
-                            ) : null;
-                          })
-                        : null}
-                    </View>
+                    </FormField>
                   )}
                 </form.Field>
               </View>
