@@ -12,23 +12,23 @@
 
 ## Entry points
 
-| File | Role |
-|---|---|
-| `app/_layout.tsx` | Root layout: Provider chain `I18next → Query → Toast → Theme`; custom `NavBar` + `Stack` (`headerShown:false`) + `BottomBar` + `PortalHost` |
-| `lib/queryClient.ts` | Global `QueryClient` singleton: `staleTime: 60_000`, `retry: false` |
-| `global.css` / `lib/theme.ts` | HSL CSS vars → tailwind, `darkMode: 'class'` |
+| File                          | Role                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/_layout.tsx`             | Root layout: Provider chain `I18next → Query → Toast → Theme`; custom `NavBar` + `Stack` (`headerShown:false`) + `BottomBar` + `PortalHost` |
+| `lib/queryClient.ts`          | Global `QueryClient` singleton: `staleTime: 60_000`, `retry: false`                                                                         |
+| `global.css` / `lib/theme.ts` | HSL CSS vars → tailwind, `darkMode: 'class'`                                                                                                |
 
 ## Feature map
 
 ### 1. Auth — login / register / logout
 
-| Feature | Files |
-|---|---|
-| Login (email+password) | `app/user.tsx`, `components/user/auth/Login.tsx`, `supabase/auth.ts` |
-| Register (email OTP) | `components/user/auth/Register.tsx`, `components/user/auth/SendCodeButton.tsx` |
-| Logout / user info | `components/user/UserInfo.tsx`, `components/user/UserDetailCard.tsx`, `components/user/UserHeaderCard.tsx` |
-| Session state | `hooks/useAuthSession.ts`, `supabase/auth.ts` |
-| Not-logged-in landing | `app/notlogin.tsx` |
+| Feature                | Files                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Login (email+password) | `app/user.tsx`, `components/user/auth/Login.tsx`, `supabase/auth.ts`                                       |
+| Register (email OTP)   | `components/user/auth/Register.tsx`, `components/user/auth/SendCodeButton.tsx`                             |
+| Logout / user info     | `components/user/UserInfo.tsx`, `components/user/UserDetailCard.tsx`, `components/user/UserHeaderCard.tsx` |
+| Session state          | `hooks/useAuthSession.ts`, `supabase/auth.ts`                                                              |
+| Not-logged-in landing  | `app/notlogin.tsx`                                                                                         |
 
 **Logic**
 
@@ -40,10 +40,10 @@
 
 ### 2. Sections (projects) — home list & CRUD
 
-| Feature | Files |
-|---|---|
-| List (paginated) | `app/index.tsx`, `supabase/sections.ts` |
-| Create | `app/create-section.tsx` |
+| Feature                | Files                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| List (paginated)       | `app/index.tsx`, `supabase/sections.ts`                                           |
+| Create                 | `app/create-section.tsx`                                                          |
 | Card / toggle / delete | `components/index/ProjectCard.tsx`, `components/ui-preSettings/ConfirmDialog.tsx` |
 
 **Logic**
@@ -56,12 +56,12 @@
 
 ### 3. Items (ledger entries) — section detail page
 
-| Feature | Files |
-|---|---|
-| List (paginated) | `app/items/[sectionId].tsx`, `supabase/items.ts` |
-| Create | `app/items/create-item.tsx` |
-| Card / delete | `components/index/ItemCard.tsx` |
-| Summary header | `components/index/SummaryCard.tsx`, `components/index/MiniSummary.tsx` |
+| Feature          | Files                                                                  |
+| ---------------- | ---------------------------------------------------------------------- |
+| List (paginated) | `app/items/[sectionId].tsx`, `supabase/items.ts`                       |
+| Create           | `app/items/create-item.tsx`                                            |
+| Card / delete    | `components/index/ItemCard.tsx`                                        |
+| Summary header   | `components/index/SummaryCard.tsx`, `components/index/MiniSummary.tsx` |
 
 **Logic**
 
@@ -73,11 +73,11 @@
 
 ### 4. Summaries — server-side aggregation (RPC)
 
-| File | Role |
-|---|---|
+| File                                                        | Role                  |
+| ----------------------------------------------------------- | --------------------- |
 | `supabase/migrations/20260801000000_item_summaries_rpc.sql` | RPC functions + index |
-| `supabase/items.ts` | Client wrappers |
-| `supabase/types.ts` | Response schemas |
+| `supabase/items.ts`                                         | Client wrappers       |
+| `supabase/types.ts`                                         | Response schemas      |
 
 **Logic**
 
@@ -88,12 +88,12 @@
 
 ### 5. AI model config — local-only, OpenAI-compatible
 
-| Feature | Files |
-|---|---|
-| Pure logic / storage / network | `ai/lib/modelConfig.ts` |
-| Query / mutation hooks | `ai/hooks/useModelConfig.ts`, `ai/hooks/useClearModelConfig.ts` |
-| Configure page | `app/model-config.tsx`, `components/ui-preSettings/ModelSelect.tsx` |
-| Info / clear page | `app/model-info.tsx` |
+| Feature                        | Files                                                               |
+| ------------------------------ | ------------------------------------------------------------------- |
+| Pure logic / storage / network | `ai/lib/modelConfig.ts`                                             |
+| Query / mutation hooks         | `ai/hooks/useModelConfig.ts`, `ai/hooks/useClearModelConfig.ts`     |
+| Configure page                 | `app/model-config.tsx`, `components/ui-preSettings/ModelSelect.tsx` |
+| Info / clear page              | `app/model-info.tsx`                                                |
 
 **Logic**
 

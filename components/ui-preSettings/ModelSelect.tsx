@@ -88,8 +88,7 @@ function ModelSelect({ options, value, onChange, placeholder, title, disabled }:
                         setOpen(false);
                       }}>
                       {/* 模型名可能很长（如 Ollama 的 `llama3.2:latest`），不截断、允许换行完整展示 */}
-                      <Text
-                        className={cn('flex-1 text-sm', selected && 'font-medium text-brand')}>
+                      <Text className={cn('flex-1 text-sm', selected && 'font-medium text-brand')}>
                         {option}
                       </Text>
                       {selected && <Icon as={Check} size={16} className="ml-2 text-brand" />}

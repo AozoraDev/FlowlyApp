@@ -12,23 +12,23 @@
 
 ## 入口点
 
-| 文件 | 职责 |
-|---|---|
-| `app/_layout.tsx` | 根布局：Provider 链 `I18next → Query → Toast → Theme`；自定义 `NavBar` + `Stack`（`headerShown:false`）+ `BottomBar` + `PortalHost` |
-| `lib/queryClient.ts` | 全局 `QueryClient` 单例：`staleTime: 60_000`、`retry: false` |
-| `global.css` / `lib/theme.ts` | HSL CSS 变量 → tailwind，`darkMode: 'class'` |
+| 文件                          | 职责                                                                                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `app/_layout.tsx`             | 根布局：Provider 链 `I18next → Query → Toast → Theme`；自定义 `NavBar` + `Stack`（`headerShown:false`）+ `BottomBar` + `PortalHost` |
+| `lib/queryClient.ts`          | 全局 `QueryClient` 单例：`staleTime: 60_000`、`retry: false`                                                                        |
+| `global.css` / `lib/theme.ts` | HSL CSS 变量 → tailwind，`darkMode: 'class'`                                                                                        |
 
 ## 功能模块
 
 ### 1. 认证 —— 登录 / 注册 / 登出
 
-| 功能 | 文件 |
-|---|---|
-| 登录（邮箱+密码） | `app/user.tsx`、`components/user/auth/Login.tsx`、`supabase/auth.ts` |
+| 功能                   | 文件                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| 登录（邮箱+密码）      | `app/user.tsx`、`components/user/auth/Login.tsx`、`supabase/auth.ts`           |
 | 注册（邮箱验证码 OTP） | `components/user/auth/Register.tsx`、`components/user/auth/SendCodeButton.tsx` |
-| 登出 / 用户信息 | `components/user/UserInfo.tsx`、`UserDetailCard.tsx`、`UserHeaderCard.tsx` |
-| 登录态 | `hooks/useAuthSession.ts`、`supabase/auth.ts` |
-| 未登录落地页 | `app/notlogin.tsx` |
+| 登出 / 用户信息        | `components/user/UserInfo.tsx`、`UserDetailCard.tsx`、`UserHeaderCard.tsx`     |
+| 登录态                 | `hooks/useAuthSession.ts`、`supabase/auth.ts`                                  |
+| 未登录落地页           | `app/notlogin.tsx`                                                             |
 
 **逻辑**
 
@@ -40,10 +40,10 @@
 
 ### 2. 项目（sections）—— 首页列表与增删改
 
-| 功能 | 文件 |
-|---|---|
-| 列表（分页） | `app/index.tsx`、`supabase/sections.ts` |
-| 新建 | `app/create-section.tsx` |
+| 功能               | 文件                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- |
+| 列表（分页）       | `app/index.tsx`、`supabase/sections.ts`                                           |
+| 新建               | `app/create-section.tsx`                                                          |
 | 卡片 / 选中 / 删除 | `components/index/ProjectCard.tsx`、`components/ui-preSettings/ConfirmDialog.tsx` |
 
 **逻辑**
@@ -56,12 +56,12 @@
 
 ### 3. 明细（items）—— 项目明细页
 
-| 功能 | 文件 |
-|---|---|
-| 列表（分页） | `app/items/[sectionId].tsx`、`supabase/items.ts` |
-| 新建 | `app/items/create-item.tsx` |
-| 卡片 / 删除 | `components/index/ItemCard.tsx` |
-| 汇总头部 | `components/index/SummaryCard.tsx`、`MiniSummary.tsx` |
+| 功能         | 文件                                                  |
+| ------------ | ----------------------------------------------------- |
+| 列表（分页） | `app/items/[sectionId].tsx`、`supabase/items.ts`      |
+| 新建         | `app/items/create-item.tsx`                           |
+| 卡片 / 删除  | `components/index/ItemCard.tsx`                       |
+| 汇总头部     | `components/index/SummaryCard.tsx`、`MiniSummary.tsx` |
 
 **逻辑**
 
@@ -73,11 +73,11 @@
 
 ### 4. 收支汇总 —— 服务端聚合（RPC）
 
-| 文件 | 职责 |
-|---|---|
+| 文件                                                        | 职责            |
+| ----------------------------------------------------------- | --------------- |
 | `supabase/migrations/20260801000000_item_summaries_rpc.sql` | RPC 函数 + 索引 |
-| `supabase/items.ts` | 客户端封装 |
-| `supabase/types.ts` | 响应 schema |
+| `supabase/items.ts`                                         | 客户端封装      |
+| `supabase/types.ts`                                         | 响应 schema     |
 
 **逻辑**
 
@@ -88,12 +88,12 @@
 
 ### 5. AI 模型配置 —— 仅本地存储，OpenAI 兼容
 
-| 功能 | 文件 |
-|---|---|
-| 纯逻辑 / 存储 / 网络 | `ai/lib/modelConfig.ts` |
-| Query / mutation hooks | `ai/hooks/useModelConfig.ts`、`ai/hooks/useClearModelConfig.ts` |
-| 配置页 | `app/model-config.tsx`、`components/ui-preSettings/ModelSelect.tsx` |
-| 信息 / 清除页 | `app/model-info.tsx` |
+| 功能                   | 文件                                                                |
+| ---------------------- | ------------------------------------------------------------------- |
+| 纯逻辑 / 存储 / 网络   | `ai/lib/modelConfig.ts`                                             |
+| Query / mutation hooks | `ai/hooks/useModelConfig.ts`、`ai/hooks/useClearModelConfig.ts`     |
+| 配置页                 | `app/model-config.tsx`、`components/ui-preSettings/ModelSelect.tsx` |
+| 信息 / 清除页          | `app/model-info.tsx`                                                |
 
 **逻辑**
 
