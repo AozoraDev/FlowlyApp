@@ -26,6 +26,8 @@ export default {
     // Chat screen
     welcomeTitle: "Hi, I'm Flowly AI",
     welcomeDesc: "I'm your bookkeeping assistant, helping you track every entry",
+    // Empty chat state: hint under the subtitle guiding the user to type "help"
+    welcomeHelpHint: 'Type "help" to see what I can do',
     inputPlaceholder: 'Ask a question…',
     send: 'Send',
     clearChat: 'Clear chat',
@@ -35,8 +37,11 @@ export default {
     messageRequired: 'Please enter a message',
     thinking: 'Thinking…',
     querying: 'Querying your ledger…',
+    writing: 'Writing to your ledger…',
     assistantFailed: 'Failed to answer, try again',
     requestFailed: 'Request failed, check your model configuration or try again',
+    // Token usage shown under an assistant answer after it finishes
+    tokenUsage: '{{total}} tokens used',
     // Conversation list
     newChat: 'New chat',
     startNewChat: 'Start a new chat',

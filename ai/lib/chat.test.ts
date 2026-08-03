@@ -146,6 +146,9 @@ describe('toChatMessage', () => {
     id: 1,
     uid: '00000000-0000-0000-0000-000000000000',
     chat_id: 1,
+    prompt_tokens: null,
+    completion_tokens: null,
+    total_tokens: null,
     created_at: '2026-08-03T00:00:00Z',
   };
 
@@ -154,14 +157,34 @@ describe('toChatMessage', () => {
       id: '1',
       role: 'user',
       content: '你好',
+      tokenUsage: null,
     });
   });
 
-  it('is_user=false 映射为助手消息', () => {
+  it('is_user=false 且 token 列为空时映射为助手消息（tokenUsage null）', () => {
     expect(toChatMessage({ ...row, is_user: false, content: '回答' })).toEqual({
       id: '1',
       role: 'assistant',
       content: '回答',
+      tokenUsage: null,
+    });
+  });
+
+  it('助手消息带 token 用量时映射到 tokenUsage', () => {
+    expect(
+      toChatMessage({
+        ...row,
+        is_user: false,
+        content: '回答',
+        prompt_tokens: 10,
+        completion_tokens: 5,
+        total_tokens: 15,
+      })
+    ).toEqual({
+      id: '1',
+      role: 'assistant',
+      content: '回答',
+      tokenUsage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
     });
   });
 });
@@ -204,12 +227,12 @@ describe('buildChatMessages', () => {
 describe('parseChunk', () => {
   it('提取 content 增量帧', () => {
     const data = JSON.stringify({ choices: [{ delta: { content: '你好' }, index: 0 }] });
-    expect(parseChunk(data)).toEqual({ content: '你好', toolCalls: [] });
+    expect(parseChunk(data)).toEqual({ content: '你好', toolCalls: [], usage: null });
   });
 
   it('角色切换帧（delta 只有 role）返回空对象', () => {
     const data = JSON.stringify({ choices: [{ delta: { role: 'assistant' }, index: 0 }] });
-    expect(parseChunk(data)).toEqual({ content: '', toolCalls: [] });
+    expect(parseChunk(data)).toEqual({ content: '', toolCalls: [], usage: null });
   });
 
   it('提取 tool_calls 帧（index/id/name/arguments）', () => {
@@ -232,6 +255,26 @@ describe('parseChunk', () => {
     expect(parseChunk(data)).toEqual({
       content: '',
       toolCalls: [{ index: 0, id: 'call_1', name: 'list_sections', arguments: '{}' }],
+      usage: null,
+    });
+  });
+
+  it('提取流式末帧 usage（choices 为空），缺省字段补 0', () => {
+    const data = JSON.stringify({
+      choices: [],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+    expect(parseChunk(data)).toEqual({
+      content: '',
+      toolCalls: [],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const partial = JSON.stringify({ choices: [], usage: { total_tokens: 7 } });
+    expect(parseChunk(partial)?.usage).toEqual({
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 7,
     });
   });
 
@@ -254,6 +297,16 @@ describe('parseChunk', () => {
     expect(parseChunk(JSON.stringify({ id: 'x' }))).toBeNull();
     expect(parseChunk(JSON.stringify({ choices: [] }))).toBeNull();
     expect(parseChunk(JSON.stringify({ choices: [{}] }))).toBeNull();
+  });
+
+  it('开启 include_usage 后普通内容帧带 usage:null，正文不能被丢弃（OpenAI 兼容协议）', () => {
+    // 标准协议：include_usage:true 时每个内容帧都带 usage:null，仅末帧为真实 usage 对象。
+    // usage 字段若按 optional 校验，null 会让整帧 safeParse 失败 → 正文增量全部丢失
+    const data = JSON.stringify({
+      choices: [{ delta: { content: '你好' }, index: 0 }],
+      usage: null,
+    });
+    expect(parseChunk(data)).toEqual({ content: '你好', toolCalls: [], usage: null });
   });
 });
 

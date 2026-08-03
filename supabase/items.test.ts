@@ -87,6 +87,20 @@ describe('listItems', () => {
 
     await expect(listItems(uuid, 1, 1, 20)).rejects.toThrow();
   });
+
+  it('传 from/to 时按流水消费时间加 gte/lt 过滤（半开区间）', async () => {
+    const client = mockClient();
+    vi.mocked(supabase).mockResolvedValue(client);
+    client.from.mockReturnValue(mockQuery({ data: [itemRow], error: null, count: 1 }));
+
+    await listItems(uuid, 9, 1, 20, '2026-08-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z');
+
+    const q = lastQuery(client);
+    expect(q.gte).toHaveBeenCalledWith('created_at', '2026-08-01T00:00:00.000Z');
+    expect(q.lt).toHaveBeenCalledWith('created_at', '2026-09-01T00:00:00.000Z');
+    expect(q.eq).toHaveBeenCalledWith('uid', uuid);
+    expect(q.eq).toHaveBeenCalledWith('section_id', 9);
+  });
 });
 
 describe('汇总 RPC', () => {
@@ -117,6 +131,20 @@ describe('汇总 RPC', () => {
 
     expect(client.rpc).toHaveBeenCalledWith('get_section_summaries', { p_uid: uuid });
     expect(res).toEqual([{ section_id: 1, income: 1, expense: 0, balance: 1 }]);
+  });
+
+  it('getSectionSummaries 带 from/to 时把时间范围传给 RPC（只按流水消费时间过滤）', async () => {
+    const client = mockClient();
+    vi.mocked(supabase).mockResolvedValue(client);
+    client.rpc.mockReturnValue(mockQuery({ data: [], error: null }));
+
+    await getSectionSummaries(uuid, '2026-08-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z');
+
+    expect(client.rpc).toHaveBeenCalledWith('get_section_summaries', {
+      p_uid: uuid,
+      p_from: '2026-08-01T00:00:00.000Z',
+      p_to: '2026-09-01T00:00:00.000Z',
+    });
   });
 });
 

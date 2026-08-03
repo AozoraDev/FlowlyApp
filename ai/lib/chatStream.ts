@@ -8,6 +8,7 @@ import {
   type ChatCompletionMessage,
   type ChatTool,
   type StreamToolCallDelta,
+  type TokenUsage,
 } from './chat';
 import type { ModelConfig } from './modelConfig';
 
@@ -22,6 +23,8 @@ export type StreamChatParams = {
   tools?: ChatTool[];
   // 每帧工具调用增量回调（跨帧碎片需调用方自行按 index 累积）
   onToolCalls?: (deltas: StreamToolCallDelta[]) => void;
+  // 流式末帧 token 用量回调（请求带 stream_options.include_usage，标准协议一轮至多回调一次）
+  onUsage?: (usage: TokenUsage) => void;
 };
 
 /**
@@ -37,8 +40,15 @@ export async function streamChatCompletion({
   onDelta,
   tools,
   onToolCalls,
+  onUsage,
 }: StreamChatParams): Promise<void> {
-  const body: Record<string, unknown> = { model: config.model, messages, stream: true };
+  const body: Record<string, unknown> = {
+    model: config.model,
+    messages,
+    stream: true,
+    // 请求流式末帧回传 usage，用于展示本轮 token 消耗；不支持该参数的端点忽略即可
+    stream_options: { include_usage: true },
+  };
   if (tools?.length) body.tools = tools;
 
   const res = await expoFetch(buildChatCompletionsUrl(config.url), {
@@ -86,6 +96,8 @@ export async function streamChatCompletion({
         if (parsed == null) continue;
         if (parsed.content) onDelta(parsed.content);
         if (parsed.toolCalls.length > 0) onToolCalls?.(parsed.toolCalls);
+        // 流式末帧 usage：转发给调用方累计（标准协议一轮仅末帧携带，多帧重复由调用方决定去重策略）
+        if (parsed.usage) onUsage?.(parsed.usage);
       }
     }
   } finally {

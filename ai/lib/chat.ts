@@ -12,8 +12,9 @@ export type ChatInput = z.infer<typeof messageSchema>;
 // 路由参数 chatId：来自 URL 的字符串，用 coerce 转数字并校验为正整数（zod 边界，一次解析）
 export const chatIdSchema = z.coerce.number().int().positive();
 
-// AI-Agent 占位气泡的进行中阶段：thinking=首帧前思考，querying=工具查询账目中
-export type AgentPhase = 'thinking' | 'querying';
+// AI-Agent 占位气泡的进行中阶段：thinking=首帧前思考，querying=读取工具查询账目中，
+// writing=写入工具（新建项目/记一笔）正在落库
+export type AgentPhase = 'thinking' | 'querying' | 'writing';
 
 // 内存中的一条对话消息；status 仅助手消息使用（streaming/error），缺省视为已完成（done）。
 // 用户消息始终无 status；构造请求时会剔除 streaming/error 占位（见 buildChatMessages）
@@ -24,7 +25,17 @@ export type ChatMessage = {
   status?: 'streaming' | 'error';
   // 进行中阶段（仅助手占位气泡）：决定「思考中 / 查询账目中」的文案
   phase?: AgentPhase;
+  // token 用量（仅助手已完成消息）：未上报（provider 不支持）或历史数据为 null
+  tokenUsage?: TokenUsage | null;
 };
+
+// 归一化后的 token 用量（OpenAI 兼容流式末帧 usage 字段）：三值必填，缺省字段补 0
+export const tokenUsageSchema = z.object({
+  prompt_tokens: z.number().int().nonnegative(),
+  completion_tokens: z.number().int().nonnegative(),
+  total_tokens: z.number().int().nonnegative(),
+});
+export type TokenUsage = z.infer<typeof tokenUsageSchema>;
 
 // OpenAI 兼容 chat 接口的 messages 元素：发给模型的最小结构。
 // assistant 可携带 tool_calls（调用工具），tool 角色回传工具执行结果，二者必须挂 role 区分
@@ -62,7 +73,8 @@ export type StreamToolCallDelta = {
 export type ToolCallAccumulator = { id?: string; name?: string; args: string };
 
 // 流式 chunk 响应边界：OpenAI 兼容协议返回 { choices: [{ delta: { content, tool_calls } }] }，
-// delta 可能缺失 content（角色切换帧），choices 也可能为空，故全部置可选
+// delta 可能缺失 content（角色切换帧），choices 也可能为空，故全部置可选。
+// 请求带 stream_options.include_usage 时，流式末帧为 { choices: [], usage: {...} }（无 delta）
 const streamChunkSchema = z.object({
   choices: z
     .array(
@@ -91,6 +103,16 @@ const streamChunkSchema = z.object({
       })
     )
     .optional(),
+  // 流式末帧 token 用量：字段可能不齐（部分端点只报 total），全部置可选，解析后补 0 归一化。
+  // 必须用 nullish 放行 null——OpenAI 兼容端点开启 include_usage 后，普通内容帧也会带 usage:null，
+  // 若按 optional（只放行 undefined）校验，会令所有内容帧 safeParse 失败、正文增量被整帧丢弃
+  usage: z
+    .object({
+      prompt_tokens: z.number().int().nonnegative().optional(),
+      completion_tokens: z.number().int().nonnegative().optional(),
+      total_tokens: z.number().int().nonnegative().optional(),
+    })
+    .nullish(),
 });
 
 // 自增序列：与时间戳拼接保证同屏 id 唯一
@@ -114,12 +136,17 @@ export function parseSseLine(line: string): string | null {
   return trimmed.slice(5).trim();
 }
 
-// 单帧解析结果：content 为该帧增量文本（可能为空串），toolCalls 为该帧工具调用增量（可能为空数组）
-export type ParsedChunk = { content: string; toolCalls: StreamToolCallDelta[] };
+// 单帧解析结果：content 为该帧增量文本（可能为空串），toolCalls 为该帧工具调用增量（可能为空数组），
+// usage 为流式末帧携带的 token 用量（仅 usage 帧有值，其余帧为 null）
+export type ParsedChunk = {
+  content: string;
+  toolCalls: StreamToolCallDelta[];
+  usage: TokenUsage | null;
+};
 
 /**
  * 解析一个 SSE data 载荷（流式 chunk）：
- * [DONE] / 坏 JSON / 结构不符（无 choices / 空 choices / 无 delta）返回 null；
+ * [DONE] / 坏 JSON / 结构不符（无 choices / 空 choices / 无 delta 且无 usage）返回 null；
  * 角色切换帧（delta 只有 role 无内容）返回空对象，调用方据此跳过或作为空帧处理。
  */
 export function parseChunk(data: string): ParsedChunk | null {
@@ -128,15 +155,25 @@ export function parseChunk(data: string): ParsedChunk | null {
     const result = streamChunkSchema.safeParse(JSON.parse(data));
     if (!result.success) return null;
     const delta = result.data.choices?.[0]?.delta;
-    if (!delta) return null;
+    const usage = result.data.usage;
+    // 既无增量内容/工具帧也无 usage 的帧（空 choices、角色帧等）视为无效帧
+    if (!delta && !usage) return null;
     return {
-      content: delta.content ?? '',
-      toolCalls: (delta.tool_calls ?? []).map((tc) => ({
+      content: delta?.content ?? '',
+      toolCalls: (delta?.tool_calls ?? []).map((tc) => ({
         index: tc.index,
         id: tc.id,
         name: tc.function?.name,
         arguments: tc.function?.arguments,
       })),
+      // 缺省字段补 0，归一化成必填的 TokenUsage；未带 usage 的普通帧为 null
+      usage: usage
+        ? {
+            prompt_tokens: usage.prompt_tokens ?? 0,
+            completion_tokens: usage.completion_tokens ?? 0,
+            total_tokens: usage.total_tokens ?? 0,
+          }
+        : null,
     };
   } catch {
     return null;
@@ -229,5 +266,14 @@ export function toChatMessage(row: AiMessage): ChatMessage {
     id: String(row.id),
     role: row.is_user ? 'user' : 'assistant',
     content: row.content,
+    // token 三列全为 null（旧数据/未上报）时 tokenUsage 为 null，气泡不展示用量
+    tokenUsage:
+      row.prompt_tokens != null || row.completion_tokens != null || row.total_tokens != null
+        ? {
+            prompt_tokens: row.prompt_tokens ?? 0,
+            completion_tokens: row.completion_tokens ?? 0,
+            total_tokens: row.total_tokens ?? 0,
+          }
+        : null,
   };
 }

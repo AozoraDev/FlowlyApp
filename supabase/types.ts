@@ -127,7 +127,8 @@ export const aiChatInsertSchema = aiChatSchema.pick({ uid: true });
 
 /**
  * ai_messages 表 schema（AI-Agent 会话消息）
- * is_user 区分角色：true=用户消息，false=助手消息；content 为消息文本
+ * is_user 区分角色：true=用户消息，false=助手消息；content 为消息文本；
+ * token 三列为助手消息的 token 用量（来自流式末帧 usage），用户消息/未上报时全为 null
  */
 export const aiMessageSchema = z.object({
   id: z.number(),
@@ -135,15 +136,21 @@ export const aiMessageSchema = z.object({
   chat_id: z.number(),
   is_user: z.boolean(),
   content: z.string(),
+  prompt_tokens: z.number().int().nonnegative().nullable(),
+  completion_tokens: z.number().int().nonnegative().nullable(),
+  total_tokens: z.number().int().nonnegative().nullable(),
   created_at: z.string(),
 });
 
-/** 插入 ai_messages 时的校验（id/created_at 由服务端生成） */
+/** 插入 ai_messages 时的校验（id/created_at 由服务端生成；token 列仅助手消息携带，用户消息省略） */
 export const aiMessageInsertSchema = z.object({
   uid: z.string().uuid(),
   chat_id: z.number(),
   is_user: z.boolean(),
   content: z.string(),
+  prompt_tokens: z.number().int().nonnegative().nullable().optional(),
+  completion_tokens: z.number().int().nonnegative().nullable().optional(),
+  total_tokens: z.number().int().nonnegative().nullable().optional(),
 });
 
 /** 会话列表分页响应：一页会话 + 匹配总数（count 来自 PostgREST count: 'exact'） */

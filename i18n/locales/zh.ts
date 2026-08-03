@@ -27,6 +27,8 @@ export default {
     // 对话页
     welcomeTitle: '你好，我是 Flowly AI 助手',
     welcomeDesc: '我是你的记账智能助手，帮你管好每一笔流水',
+    // 新对话空态：副标题下引导用户输入「帮助」查看固定的功能说明
+    welcomeHelpHint: '输入「帮助」，查看我能做什么',
     inputPlaceholder: '输入你的问题…',
     send: '发送',
     clearChat: '清空对话',
@@ -36,8 +38,11 @@ export default {
     messageRequired: '请输入内容',
     thinking: '思考中…',
     querying: '正在查询你的账目数据…',
+    writing: '正在写入你的账目…',
     assistantFailed: '回答失败，请重试',
     requestFailed: '请求失败，请检查模型配置或稍后重试',
+    // 助手回答完成后的 token 消耗展示
+    tokenUsage: '消耗 {{total}} tokens',
     // 会话列表页
     newChat: '新建对话',
     startNewChat: '开始新对话',
