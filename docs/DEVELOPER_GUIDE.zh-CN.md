@@ -73,11 +73,11 @@
 
 ### 4. 收支汇总 —— 服务端聚合（RPC）
 
-| 文件                                                                 | 职责              |
-| ------------------------------------------------------------------ | --------------- |
-| `supabase/migrations/20260801000000_item_summaries_rpc.sql`        | RPC 函数 + 索引     |
-| `supabase/items.ts`                                                | 客户端封装           |
-| `supabase/types.ts`                                                | 响应 schema       |
+| 文件                                                               | 职责                      |
+| ------------------------------------------------------------------ | ------------------------- |
+| `supabase/migrations/20260801000000_item_summaries_rpc.sql`        | RPC 函数 + 索引           |
+| `supabase/items.ts`                                                | 客户端封装                |
+| `supabase/types.ts`                                                | 响应 schema               |
 | `supabase/migrations/20260805000000_item_summaries_time_range.sql` | 首页 RPC 增加可选时间范围 |
 
 **逻辑**
@@ -108,18 +108,18 @@
 
 ### 6. AI-Agent 聊天 —— 持久化多段对话，流式 + 工具（只读查账 / 写入记账）
 
-| 功能         | 文件                                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 系统提示词      | `ai/prompt/systemPrompt.ts`（`getSystemPrompt`、`localDateStr`，zh/en 双语模板字符串）                                                        |
-| 聊天原语 / SSE | `ai/lib/chat.ts`（`parseChunk`、`accumulateToolCalls`、`buildChatMessages`、`truncateTitle`、`tokenUsageSchema`、zod schema）             |
-| 流式传输       | `ai/lib/chatStream.ts`（`streamChatCompletion` —— 基于 `expo/fetch` 的 SSE，`include_usage` token 上报）                                   |
-| Agent 循环   | `ai/lib/agent.ts`（`runAgentChat` → `{content, usage}`、`MAX_TOOL_ROUNDS`）                                                           |
-| 工具         | `ai/lib/tools.ts`（`getChatTools`、`runTool`、`isWriteTool`、`isHelpTool`）                                                             |
-| Query hook | `ai/hooks/useChat.ts`（`useChat`）                                                                                                   |
-| 持久化        | `supabase/aiChats.ts`、`supabase/aiMessages.ts`、迁移 `20260803000000_ai_chats_rls.sql` + `20260804000000_ai_messages_token_usage.sql` |
-| 页面         | `app/ai-agent/index.tsx`（会话列表）、`app/ai-agent/[chatId].tsx`（单段对话）、`app/not-config-model.tsx`（引导页）                                   |
-| 组件         | `components/ai-agent/` —— `ChatBubble`、`ChatInputBar`、`ChatRow`、`ConfigureModelButton`                                             |
-| 入口         | `components/bar/BottomBar.tsx` —— AI-Agent tab（中间，登录后展示）                                                                           |
+| 功能           | 文件                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 系统提示词     | `ai/prompt/systemPrompt.ts`（`getSystemPrompt`、`localDateStr`，zh/en 双语模板字符串）                                                 |
+| 聊天原语 / SSE | `ai/lib/chat.ts`（`parseChunk`、`accumulateToolCalls`、`buildChatMessages`、`truncateTitle`、`tokenUsageSchema`、zod schema）          |
+| 流式传输       | `ai/lib/chatStream.ts`（`streamChatCompletion` —— 基于 `expo/fetch` 的 SSE，`include_usage` token 上报）                               |
+| Agent 循环     | `ai/lib/agent.ts`（`runAgentChat` → `{content, usage}`、`MAX_TOOL_ROUNDS`）                                                            |
+| 工具           | `ai/lib/tools.ts`（`getChatTools`、`runTool`、`isWriteTool`、`isHelpTool`）                                                            |
+| Query hook     | `ai/hooks/useChat.ts`（`useChat`）                                                                                                     |
+| 持久化         | `supabase/aiChats.ts`、`supabase/aiMessages.ts`、迁移 `20260803000000_ai_chats_rls.sql` + `20260804000000_ai_messages_token_usage.sql` |
+| 页面           | `app/ai-agent/index.tsx`（会话列表）、`app/ai-agent/[chatId].tsx`（单段对话）、`app/not-config-model.tsx`（引导页）                    |
+| 组件           | `components/ai-agent/` —— `ChatBubble`、`ChatInputBar`、`ChatRow`、`ConfigureModelButton`                                              |
+| 入口           | `components/bar/BottomBar.tsx` —— AI-Agent tab（中间，登录后展示）                                                                     |
 
 **逻辑**
 

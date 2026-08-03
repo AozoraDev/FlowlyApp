@@ -81,7 +81,8 @@ export function sanitizeJsonSchema(node: unknown): unknown {
   if (node && typeof node === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(node)) {
-      if (k === '$schema' || k === 'additionalProperties' || k === 'default' || k === 'pattern') continue;
+      if (k === '$schema' || k === 'additionalProperties' || k === 'default' || k === 'pattern')
+        continue;
       out[k] = sanitizeJsonSchema(v);
     }
     return out;
