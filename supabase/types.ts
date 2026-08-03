@@ -106,6 +106,53 @@ export const sectionsPageSchema = z.object({
 });
 
 // ============================================================
+// ai_chats / ai_messages（AI-Agent 会话与消息）
+// ============================================================
+
+/**
+ * ai_chats 表 schema（AI-Agent 会话）
+ * title 为会话标题，客户端在首条用户消息发送时自动生成（取前 20 字）；
+ * updated_at 由数据库触发器在插入消息时刷新，会话列表按它倒序把最新会话置顶
+ */
+export const aiChatSchema = z.object({
+  id: z.number(),
+  uid: z.string().uuid(),
+  title: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+/** 插入 ai_chats 时的校验（id/created_at/updated_at 由服务端生成，title 首条消息时才填） */
+export const aiChatInsertSchema = aiChatSchema.pick({ uid: true });
+
+/**
+ * ai_messages 表 schema（AI-Agent 会话消息）
+ * is_user 区分角色：true=用户消息，false=助手消息；content 为消息文本
+ */
+export const aiMessageSchema = z.object({
+  id: z.number(),
+  uid: z.string().uuid(),
+  chat_id: z.number(),
+  is_user: z.boolean(),
+  content: z.string(),
+  created_at: z.string(),
+});
+
+/** 插入 ai_messages 时的校验（id/created_at 由服务端生成） */
+export const aiMessageInsertSchema = z.object({
+  uid: z.string().uuid(),
+  chat_id: z.number(),
+  is_user: z.boolean(),
+  content: z.string(),
+});
+
+/** 会话列表分页响应：一页会话 + 匹配总数（count 来自 PostgREST count: 'exact'） */
+export const aiChatsPageSchema = z.object({
+  chats: z.array(aiChatSchema),
+  total: z.number().int().min(0),
+});
+
+// ============================================================
 // 推导出的 TypeScript 类型
 // ============================================================
 
@@ -135,3 +182,18 @@ export type ItemsPage = z.infer<typeof itemsPageSchema>;
 
 /** sections 分页响应 */
 export type SectionsPage = z.infer<typeof sectionsPageSchema>;
+
+/** AI-Agent 会话（ai_chats 记录） */
+export type AiChat = z.infer<typeof aiChatSchema>;
+
+/** 创建会话时的输入类型 */
+export type AiChatInsert = z.infer<typeof aiChatInsertSchema>;
+
+/** AI-Agent 会话消息（ai_messages 记录） */
+export type AiMessage = z.infer<typeof aiMessageSchema>;
+
+/** 追加会话消息时的输入类型 */
+export type AiMessageInsert = z.infer<typeof aiMessageInsertSchema>;
+
+/** 会话列表分页响应 */
+export type AiChatsPage = z.infer<typeof aiChatsPageSchema>;

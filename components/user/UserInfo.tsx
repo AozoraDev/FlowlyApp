@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { LogOut, Settings2 } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { LogOut } from 'lucide-react-native';
 import type { User } from '@supabase/supabase-js';
 import { useTranslation } from 'react-i18next';
 
 import { useClearModelConfig } from '@/ai/hooks/useClearModelConfig';
 import { useModelConfig } from '@/ai/hooks/useModelConfig';
+import { BrandButton } from '@/components/ui-preSettings/Button';
+import { ConfigureModelButton } from '@/components/ai-agent/ConfigureModelButton';
 import { UserDetailCard } from '@/components/user/UserDetailCard';
 import { UserHeaderCard } from '@/components/user/UserHeaderCard';
-import { BrandButton } from '@/components/ui-preSettings/Button';
 import { formatDate } from '@/lib/format';
 import { getProfile, signOut } from '@/supabase/auth';
 import type { Profile } from '@/supabase/types';
@@ -83,12 +83,7 @@ function UserInfo({ user }: UserInfoProps) {
       />
 
       {/* 配置模型：已配置时进模型信息页（可查看/清除），未配置时进模型配置页填写 */}
-      <BrandButton
-        icon={Settings2}
-        label={t('user.configureModel')}
-        className="mt-4"
-        onPress={() => router.push(modelConfig ? '/model-info' : '/model-config')}
-      />
+      <ConfigureModelButton className="mt-4" />
 
       {/* 退出登录：使用品牌蓝按钮预设 */}
       <BrandButton icon={LogOut} label={t('user.logout')} className="mt-4" onPress={handleLogout} />

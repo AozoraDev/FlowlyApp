@@ -102,8 +102,59 @@
 - Configure page is **two-step**: "confirm" is disabled until "test link" succeeds **and** the current `url`/`apiKey` still match the tested ones.
 - All pages share `queryKey ['modelConfig']` (`staleTime: Infinity`); save/clear invalidate to sync across pages.
 - **Logout clears the config** to prevent cross-account leakage.
+- The saved config **gates the AI-Agent** (§6): `/ai-agent` screens redirect to `/not-config-model` when none exists, and that screen auto-recovers to `/ai-agent` once a config is saved.
 
-### 6. i18n
+### 6. AI-Agent chat — persisted multi-turn chat, streaming + read-only tools
+
+| Feature               | Files                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| System prompt         | `ai/prompt/systemPrompt.ts` (`getSystemPrompt`, bilingual zh/en template strings)                         |
+| Chat primitives / SSE | `ai/lib/chat.ts` (`parseChunk`, `accumulateToolCalls`, `buildChatMessages`, `truncateTitle`, zod schemas) |
+| Streaming transport   | `ai/lib/chatStream.ts` (`streamChatCompletion` — SSE over `expo/fetch`)                                   |
+| Agent loop            | `ai/lib/agent.ts` (`runAgentChat`, `MAX_TOOL_ROUNDS`)                                                     |
+| Tools (read-only)     | `ai/lib/tools.ts` (`getChatTools`, `runTool`)                                                             |
+| Query hook            | `ai/hooks/useChat.ts` (`useChat`)                                                                         |
+| Persistence           | `supabase/aiChats.ts`, `supabase/aiMessages.ts`, `supabase/migrations/20260803000000_ai_chats_rls.sql`    |
+| Screens               | `app/ai-agent/index.tsx` (list), `app/ai-agent/[chatId].tsx` (chat), `app/not-config-model.tsx` (guide)   |
+| Components            | `components/ai-agent/` — `ChatBubble`, `ChatInputBar`, `ChatRow`, `ConfigureModelButton`                  |
+| Entry                 | `components/bar/BottomBar.tsx` — AI-Agent tab (middle, login-gated)                                       |
+
+**Logic**
+
+- **Guards** — entry gating:
+  - The AI-Agent tab is spliced into `BottomBar` **only when logged in** (two tabs logged out, three logged in).
+  - Both `/ai-agent` screens redirect to `/notlogin` when logged out, and to `/not-config-model` when no model config exists.
+- **Conversation list** (`index.tsx`):
+  - Server-side pagination: `listAiChats(uid, page, 15)` → `queryKey ['aiChats', uid, page]`.
+  - New chat: `createAiChat(uid)` then push `/ai-agent/[chatId]`.
+  - Delete: `deleteAiChat` (messages then chat).
+  - `useFocusEffect` invalidates `['aiChats', uid]` on refocus so titles/ordering refresh.
+- **Send pipeline** (`useChat`):
+  - Persist the user message **first** — the question is never lost.
+  - If it's the first message, set the chat title via `truncateTitle` (20 chars).
+  - `runAgentChat` streams deltas into a local assistant placeholder; on success, persist the assistant answer.
+  - Tool intermediates are **not persisted** — re-entering a chat lets the model re-call tools (self-heal).
+  - Sends block until the seed query settles; `pendingRef` blocks double-taps; unmount aborts the in-flight stream.
+- **Agent loop** (`agent.ts`):
+  - One `runAgentChat` call = up to `MAX_TOOL_ROUNDS` (5) streaming rounds.
+  - Each round forwards `onDelta` (incremental text) + accumulated `tool_calls`, then executes via `runTool`.
+  - Tool failures return `{ok:false,error}` strings and **never throw**, so the loop survives.
+  - `onPhase('thinking' | 'querying')` drives the placeholder bubble.
+- **Streaming** (`chatStream.ts`):
+  - SSE over **`expo/fetch`** — RN's built-in fetch can't read `response.body`.
+  - `TextDecoder({stream:true})` preserves multi-byte chars; a line splitter reconstructs frames; `[DONE]` cancels the reader.
+  - Non-2xx reads the body (capped 500 chars) and throws `HTTP <status>: <detail>` — honest failure when the endpoint doesn't support tools.
+- **Tools** (`tools.ts`) — 3 read-only tools backed by existing supabase queries:
+  - `list_sections` — all sections.
+  - `get_account_summaries` — per-section income/expense/balance + total.
+  - `list_items` — one section's transactions, paginated.
+  - Arg schemas: zod → JSON Schema via `toToolJsonSchema` (sanitizes out `$schema`/`additionalProperties`/`default`); params are `.optional()` so defaults never leak into `required`.
+- **System prompt** (`systemPrompt.ts`): call a tool for any ledger question (tool results are the only source of truth — never invent amounts), stay read-only (write/edit/delete refused), answer in the user's language with Markdown, refuse unsafe requests.
+- **Markdown**: `ChatBubble` renders streaming as plain text + cursor (avoids unclosed-syntax flicker), then `<Markdown>` (`@ronradtke/react-native-markdown-display`) once done, themed from `THEME`.
+- **DB**: `ai_chats(id, uid, title, created_at, updated_at)` → `ai_messages(id, chat_id, uid, is_user bool, content, created_at)`.
+  - Migration adds `title`/`updated_at` (+ trigger touching `updated_at` on message insert), indexes, and per-uid RLS on both tables.
+
+### 7. i18n
 
 - `i18n/index.ts` initializes from device language, `fallbackLng: 'zh'`, and persists the user's manual choice in AsyncStorage.
 - All copy goes through `t()` with fully typed keys (`locales/{zh,en}.ts`); toggle is in `NavBar` (`components/bar/LanguageToggle.tsx`).
@@ -112,16 +163,18 @@
 
 - **`components/ui/`** — base `Button/Text/Input/Icon/Card/...` (RN Reusables + cva variants + `cn()`).
 - **`components/ui-preSettings/`** — business presets: `GlassCard`, `PaginatedList`, `FormField`, `ModelSelect`, `ConfirmDialog`, `CountUpText`, `PageHeader`, `Pill`, `ScreenBackground`, `Toast`, `BrandButton`.
+- **`components/ai-agent/`** — chat UI: `ChatBubble` (streaming + Markdown), `ChatInputBar` (presentational input), `ChatRow` (list row), `ConfigureModelButton` (routes to config/info, also used by `UserInfo`).
 - **`PaginatedList`** has two modes: client slicing (pass full `items`) or server pagination (pass `total/currentPage/onPageChange`). Auto-clamps the page when data shrinks.
-- **`lib/format.ts`** — `formatDate` (zh-CN/en-US) and `currencyPrefix` (`+￥`/`-￥`).
+- **`lib/format.ts`** — `formatDate` (zh-CN/en-US, returns `''` on invalid input), `currencyPrefix` (`+￥`/`-￥`), `formatRelativeTime` (Intl.RelativeTimeFormat, falls back to `formatDate` past a week).
 - Amounts animate with `CountUpText`.
 
 ## Conventions — don't break
 
 - **Forms**: TanStack Form + zod (schema is the single source of truth); field errors from `field.state.meta.errors`; submit via `useMutation` (`isPending` prevents double-submit); invalidate queries on success.
-- **Query keys**: `['sections', uid, page]`, `['items', uid, sectionId, page]`, `['sectionSummaries', uid]`, `['itemSummary', uid, sectionId]`, `['modelConfig']`.
+- **Query keys**: `['sections', uid, page]`, `['items', uid, sectionId, page]`, `['sectionSummaries', uid]`, `['itemSummary', uid, sectionId]`, `['modelConfig']`, `['aiChats', uid, page]`, `['aiMessages', chatId]`.
+- **AI streaming**: must use `expo/fetch` (RN's fetch can't stream); keep pure logic (`ai/lib/chat.ts`, `agent.ts`) free of `expo/fetch` so vitest can run them under node.
 - **Supabase boundary**: every query/response is parsed with zod (`parse`/`safeParse`) — no `as`, no `!`. RLS isolates data by `uid`; deletes assume ownership via RLS.
-- **Data model**: `sections(id bigint, describe, uid, selected, created_at)` → `items(id, uid, section_id, isIncome, number numeric, reason, created_at)`; `profiles(id, username, avatar_url, bio, ...)`.
+- **Data model**: `sections(id bigint, describe, uid, selected, created_at)` → `items(id, uid, section_id, isIncome, number numeric, reason, created_at)`; `profiles(id, username, avatar_url, bio, ...)`; `ai_chats(id, uid, title, created_at, updated_at)` → `ai_messages(id, chat_id, uid, is_user, content, created_at)`.
 
 ## Commands
 

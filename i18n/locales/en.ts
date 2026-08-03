@@ -10,12 +10,47 @@ export default {
     registerCta: 'Sign up and log in to start your bookkeeping journey',
     // Bottom bar tab labels
     home: 'Index',
+    aiAgent: 'AI-Agent',
     user: 'User',
     // Pagination jump-to-page labels
     goTo: 'Go to page',
     jump: 'Go',
     jumpTo: 'Go to',
     totalPages: 'of {{total}}',
+  },
+  aiAgent: {
+    // Not-configured guide: shown when entering AI-Agent without a saved model
+    notConfiguredTitle: 'Model Not Configured',
+    notConfiguredDesc: 'Configure a model before using AI-Agent',
+    goConfigure: 'Configure',
+    // Chat screen
+    welcomeTitle: "Hi, I'm Flowly AI",
+    welcomeDesc: "I'm your bookkeeping assistant, helping you track every entry",
+    inputPlaceholder: 'Ask a question…',
+    send: 'Send',
+    clearChat: 'Clear chat',
+    clearConfirmTitle: 'Clear chat',
+    clearConfirmDesc: 'This clears all messages in this conversation and cannot be undone.',
+    confirmClear: 'Clear',
+    messageRequired: 'Please enter a message',
+    thinking: 'Thinking…',
+    querying: 'Querying your ledger…',
+    assistantFailed: 'Failed to answer, try again',
+    requestFailed: 'Request failed, check your model configuration or try again',
+    // Conversation list
+    newChat: 'New chat',
+    startNewChat: 'Start a new chat',
+    untitledChat: 'New chat',
+    back: 'Back',
+    emptyChatsLoadFailed: 'Failed to load conversations, try again later',
+    // Delete conversation (dangerous action, needs confirmation)
+    deleteChat: 'Delete chat',
+    deleteConfirmTitle: 'Delete chat',
+    deleteConfirmDesc: 'This conversation and all its messages will be permanently deleted.',
+    deleteSuccess: 'Conversation deleted',
+    deleteFailed: 'Failed to delete, try again later',
+    createFailed: 'Failed to create chat, try again later',
+    clearFailed: 'Failed to clear, try again later',
   },
   home: {
     // Home header title: project overview
