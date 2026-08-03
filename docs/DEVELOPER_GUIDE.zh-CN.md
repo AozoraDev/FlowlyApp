@@ -102,8 +102,59 @@
 - 配置页**两步交互**：「确认」需在「测试链接」成功后且当前 `url`/`apiKey` 与测试记录一致才可点。
 - 各页共用 `queryKey ['modelConfig']`（`staleTime: Infinity`）；保存/清除后 invalidate 自动同步。
 - **登出时清除配置**，避免账号切换后残留上一账号的 Key。
+- 已保存的配置还**是 AI-Agent 的入口开关**（见 §6）：未配置时 `/ai-agent` 页会跳转 `/not-config-model`，保存配置后该页自动恢复回到 `/ai-agent`。
 
-### 6. i18n
+### 6. AI-Agent 聊天 —— 持久化多段对话，流式 + 只读工具查账
+
+| 功能           | 文件                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 系统提示词     | `ai/prompt/systemPrompt.ts`（`getSystemPrompt`，zh/en 双语模板字符串）                                              |
+| 聊天原语 / SSE | `ai/lib/chat.ts`（`parseChunk`、`accumulateToolCalls`、`buildChatMessages`、`truncateTitle`、zod schema）           |
+| 流式传输       | `ai/lib/chatStream.ts`（`streamChatCompletion` —— 基于 `expo/fetch` 的 SSE）                                        |
+| Agent 循环     | `ai/lib/agent.ts`（`runAgentChat`、`MAX_TOOL_ROUNDS`）                                                              |
+| 工具（只读）   | `ai/lib/tools.ts`（`getChatTools`、`runTool`）                                                                      |
+| Query hook     | `ai/hooks/useChat.ts`（`useChat`）                                                                                  |
+| 持久化         | `supabase/aiChats.ts`、`supabase/aiMessages.ts`、`supabase/migrations/20260803000000_ai_chats_rls.sql`              |
+| 页面           | `app/ai-agent/index.tsx`（会话列表）、`app/ai-agent/[chatId].tsx`（单段对话）、`app/not-config-model.tsx`（引导页） |
+| 组件           | `components/ai-agent/` —— `ChatBubble`、`ChatInputBar`、`ChatRow`、`ConfigureModelButton`                           |
+| 入口           | `components/bar/BottomBar.tsx` —— AI-Agent tab（中间，登录后展示）                                                  |
+
+**逻辑**
+
+- **守卫** —— 入口门槛：
+  - `BottomBar` 仅在**登录后**把 AI-Agent 插入中间位（未登录两个入口，登录后三个）。
+  - `/ai-agent` 两页在未登录时跳 `/notlogin`，未配置模型时跳 `/not-config-model`。
+- **会话列表**（`index.tsx`）：
+  - 服务端分页：`listAiChats(uid, page, 15)` → `queryKey ['aiChats', uid, page]`。
+  - 新建：`createAiChat(uid)` 后 push `/ai-agent/[chatId]`。
+  - 删除：`deleteAiChat`（先删消息再删会话）。
+  - `useFocusEffect` 在重新聚焦时失效 `['aiChats', uid]`，保证标题/排序即时刷新。
+- **发送流水线**（`useChat`）：
+  - **先落库用户消息** —— 问题不丢。
+  - 若是首条消息，用 `truncateTitle`（20 字）生成会话标题。
+  - `runAgentChat` 把增量文本流进本地助手占位气泡，成功后落库助手答案。
+  - 工具中间态**不落库** —— 重进会话由模型重新调工具自愈。
+  - 种子查询未完成前禁发；`pendingRef` 同步拦截连点；卸载时 abort 在途流。
+- **Agent 循环**（`agent.ts`）：
+  - 一次 `runAgentChat` = 最多 `MAX_TOOL_ROUNDS`（5）轮流式请求。
+  - 每轮把 `onDelta`（增量文本）+ 累计的 `tool_calls` 前向转发，再经 `runTool` 执行。
+  - 工具失败返回 `{ok:false,error}` 字符串且**永不抛异常**，循环得以存活。
+  - `onPhase('thinking' | 'querying')` 驱动占位气泡文案。
+- **流式**（`chatStream.ts`）：
+  - SSE 必须走 **`expo/fetch`** —— RN 内置 fetch 读不了 `response.body`。
+  - `TextDecoder({stream:true})` 保住多字节字符；行拆分器重组 SSE 帧；`[DONE]` 后 cancel reader。
+  - 非 2xx 读取响应体（截断 500 字符）抛 `HTTP <status>: <detail>` —— 端点不支持 tools 时诚实报错。
+- **工具**（`tools.ts`）—— 3 个只读工具，全部复用现有 supabase 查询：
+  - `list_sections` —— 全部项目。
+  - `get_account_summaries` —— 各项目收支结余 + 合计。
+  - `list_items` —— 某项目流水，分页。
+  - 参数 schema：zod → JSON Schema（`toToolJsonSchema`）剔除 `$schema`/`additionalProperties`/`default`；参数一律 `.optional()`，默认值放 executor，避免默认值混进 `required`。
+- **系统提示词**（`systemPrompt.ts`）：涉及账目必须调工具（工具返回为唯一事实来源，禁止编造金额）、只读（写入/修改/删除一律拒绝）、按用户语言用 Markdown 回答、拒绝不安全请求。
+- **Markdown**：`ChatBubble` 流式中保持纯文本 + 光标（避免语法未闭合闪烁），完成后用 `<Markdown>`（`@ronradtke/react-native-markdown-display`）渲染，颜色取自 `THEME`。
+- **数据表**：`ai_chats(id, uid, title, created_at, updated_at)` → `ai_messages(id, chat_id, uid, is_user bool, content, created_at)`。
+  - 迁移补充 `title`/`updated_at`（含消息插入时更新 `updated_at` 的触发器）、索引、两张表的按 uid RLS。
+
+### 7. i18n
 
 - `i18n/index.ts` 初始化取设备语言，`fallbackLng: 'zh'`，用户手动选择持久化到 AsyncStorage。
 - 全部文案走 `t()`，key 有完整类型推导（`locales/{zh,en}.ts`）；切换按钮在 `NavBar`（`components/bar/LanguageToggle.tsx`）。
@@ -112,16 +163,18 @@
 
 - **`components/ui/`** —— 基础 `Button/Text/Input/Icon/Card/...`（RN Reusables + cva 变体 + `cn()`）。
 - **`components/ui-preSettings/`** —— 业务预设：`GlassCard`、`PaginatedList`、`FormField`、`ModelSelect`、`ConfirmDialog`、`CountUpText`、`PageHeader`、`Pill`、`ScreenBackground`、`Toast`、`BrandButton`。
+- **`components/ai-agent/`** —— 聊天 UI：`ChatBubble`（流式 + Markdown）、`ChatInputBar`（纯展示输入框）、`ChatRow`（会话列表行）、`ConfigureModelButton`（跳转配置/信息页，`UserInfo` 也在用）。
 - **`PaginatedList`** 双模式：客户端切片（传全量 `items`）或服务端分页（传 `total/currentPage/onPageChange`）。数据删减导致页码越界时自动回落。
-- **`lib/format.ts`** —— `formatDate`（zh-CN/en-US）与 `currencyPrefix`（`+￥`/`-￥`）。
+- **`lib/format.ts`** —— `formatDate`（zh-CN/en-US，非法输入返回空串）、`currencyPrefix`（`+￥`/`-￥`）、`formatRelativeTime`（Intl.RelativeTimeFormat，超过一周回落 `formatDate`）。
 - 金额统一走 `CountUpText` 数字滚动动效。
 
 ## 约定 —— 不要破坏
 
 - **表单**：TanStack Form + zod（schema 是唯一数据源）；字段错误取 `field.state.meta.errors`；提交走 `useMutation`（`isPending` 防重复提交）；成功 invalidateQueries。
-- **Query key**：`['sections', uid, page]`、`['items', uid, sectionId, page]`、`['sectionSummaries', uid]`、`['itemSummary', uid, sectionId]`、`['modelConfig']`。
+- **Query key**：`['sections', uid, page]`、`['items', uid, sectionId, page]`、`['sectionSummaries', uid]`、`['itemSummary', uid, sectionId]`、`['modelConfig']`、`['aiChats', uid, page]`、`['aiMessages', chatId]`。
+- **AI 流式**：必须用 `expo/fetch`（RN 的 fetch 不能流式）；纯逻辑（`ai/lib/chat.ts`、`agent.ts`）不 import `expo/fetch`，保证 vitest 在 node 下可单测。
 - **Supabase 边界**：所有查询/响应经 zod 解析（`parse`/`safeParse`），禁 `as`/`!`；RLS 按 `uid` 隔离，删除类操作依赖 RLS 保证归属。
-- **数据模型**：`sections(id bigint, describe, uid, selected, created_at)` → `items(id, uid, section_id, isIncome, number numeric, reason, created_at)`；`profiles(id, username, avatar_url, bio, ...)`。
+- **数据模型**：`sections(id bigint, describe, uid, selected, created_at)` → `items(id, uid, section_id, isIncome, number numeric, reason, created_at)`；`profiles(id, username, avatar_url, bio, ...)`；`ai_chats(id, uid, title, created_at, updated_at)` → `ai_messages(id, chat_id, uid, is_user, content, created_at)`。
 
 ## 命令
 

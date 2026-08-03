@@ -11,12 +11,47 @@ export default {
     registerCta: '注册并登录开始你新的记账体验',
     // 底部导航入口文案
     home: '首页',
+    aiAgent: 'AI-Agent',
     user: '用户',
     // 分页跳转页码相关
     goTo: '跳转到指定页',
     jump: '跳转',
     jumpTo: '跳转到',
     totalPages: '共 {{total}} 页',
+  },
+  aiAgent: {
+    // 未配置模型引导页：点击 AI-Agent 但尚未配置模型时展示，引导前往配置页
+    notConfiguredTitle: '模型未配置',
+    notConfiguredDesc: '使用 AI-Agent 前，请先配置模型',
+    goConfigure: '去配置',
+    // 对话页
+    welcomeTitle: '你好，我是 Flowly AI 助手',
+    welcomeDesc: '我是你的记账智能助手，帮你管好每一笔流水',
+    inputPlaceholder: '输入你的问题…',
+    send: '发送',
+    clearChat: '清空对话',
+    clearConfirmTitle: '清空对话',
+    clearConfirmDesc: '将清空当前对话的全部消息，且无法恢复。',
+    confirmClear: '确认清空',
+    messageRequired: '请输入内容',
+    thinking: '思考中…',
+    querying: '正在查询你的账目数据…',
+    assistantFailed: '回答失败，请重试',
+    requestFailed: '请求失败，请检查模型配置或稍后重试',
+    // 会话列表页
+    newChat: '新建对话',
+    startNewChat: '开始新对话',
+    untitledChat: '新对话',
+    back: '返回',
+    emptyChatsLoadFailed: '对话加载失败，请稍后重试',
+    // 删除会话（危险操作，需二次确认）
+    deleteChat: '删除对话',
+    deleteConfirmTitle: '删除对话',
+    deleteConfirmDesc: '删除后该对话及其全部消息将无法恢复。',
+    deleteSuccess: '对话已删除',
+    deleteFailed: '删除失败，请稍后重试',
+    createFailed: '创建对话失败，请稍后重试',
+    clearFailed: '清空失败，请稍后重试',
   },
   home: {
     // 首页顶部标题：项目总览
