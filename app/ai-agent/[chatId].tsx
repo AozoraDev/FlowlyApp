@@ -146,7 +146,7 @@ export default function AiChatScreen() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
           onContentSizeChange={handleContentSizeChange}
-          // 空对话欢迎态：圆形徽标 + 标题 + 一句说明，居中展示
+          // 空对话欢迎态：圆形徽标 + 标题 + 一句说明 + 输入「帮助」引导，居中展示
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center gap-1 px-8">
               <View className="h-14 w-14 items-center justify-center rounded-full bg-brand/10">
@@ -157,6 +157,9 @@ export default function AiChatScreen() {
               </Text>
               <Text className="text-center text-sm text-muted-foreground">
                 {t('aiAgent.welcomeDesc')}
+              </Text>
+              <Text className="mt-1 text-center text-sm text-muted-foreground">
+                {t('aiAgent.welcomeHelpHint')}
               </Text>
             </View>
           }

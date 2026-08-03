@@ -11,7 +11,7 @@ import {
   type ChatMessage,
 } from '@/ai/lib/chat';
 import type { ModelConfig } from '@/ai/lib/modelConfig';
-import { getSystemPrompt } from '@/ai/prompt/systemPrompt';
+import { getSystemPrompt, localDateStr } from '@/ai/prompt/systemPrompt';
 import { useAppToast } from '@/components/ui-preSettings/Toast';
 import { updateAiChatTitle } from '@/supabase/aiChats';
 import { clearAiChatMessages, createAiMessage, listAiMessages } from '@/supabase/aiMessages';
@@ -120,9 +120,10 @@ export function useChat({ chatId, userId, config }: UseChatOptions) {
       // 3) Agent 多轮请求：涉及账目问题时模型会调用工具查询真实数据，最终文本增量拼进
       //    最后一条助手占位并用于落库；工具中间态不落库，重进会话由模型重新调工具自愈
       abortRef.current = new AbortController();
-      const finalAnswer = await runAgentChat({
+      const result = await runAgentChat({
         config: cfg,
-        systemPrompt: getSystemPrompt(i18n.language),
+        // 注入设备本地日期，模型才知道「今天」是哪天，才能把「8月」换算成 from/to 时间区间
+        systemPrompt: getSystemPrompt(i18n.language, localDateStr()),
         history: messagesRef.current,
         userId: uid,
         language: i18n.language,
@@ -146,8 +147,18 @@ export function useChat({ chatId, userId, config }: UseChatOptions) {
         },
       });
 
-      // 4) 助手消息仅在流式成功后落库；失败/中断由 onError 标记为 error，不写库
-      await createAiMessage({ uid, chat_id: chatId, is_user: false, content: finalAnswer });
+      // 4) 助手消息仅在流式成功后落库；失败/中断由 onError 标记为 error，不写库。
+      //    token 用量随消息持久化，重进会话后气泡仍能展示；未上报时为 null
+      await createAiMessage({
+        uid,
+        chat_id: chatId,
+        is_user: false,
+        content: result.content,
+        prompt_tokens: result.usage?.prompt_tokens ?? null,
+        completion_tokens: result.usage?.completion_tokens ?? null,
+        total_tokens: result.usage?.total_tokens ?? null,
+      });
+      return result;
     },
     onMutate: (input) => {
       pendingRef.current = true;
@@ -160,11 +171,13 @@ export function useChat({ chatId, userId, config }: UseChatOptions) {
         { id: genId(), role: 'assistant', content: '', status: 'streaming' },
       ]);
     },
-    onSuccess: () => {
-      // 完成：把助手占位从 streaming 标记为已完成（status 置空）
+    onSuccess: (data) => {
+      // 完成：把助手占位从 streaming 标记为已完成（status 置空），并补上本轮 token 用量供气泡展示
       commit((prev) =>
         prev.map((m, i) =>
-          i === prev.length - 1 && m.role === 'assistant' ? { ...m, status: undefined } : m
+          i === prev.length - 1 && m.role === 'assistant'
+            ? { ...m, status: undefined, tokenUsage: data.usage }
+            : m
         )
       );
     },

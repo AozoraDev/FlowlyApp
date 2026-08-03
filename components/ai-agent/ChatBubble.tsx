@@ -127,11 +127,15 @@ function ChatBubbleImpl({ message }: ChatBubbleProps) {
         }>
         {streaming ? (
           message.content === '' ? (
-            // 首帧前的等待态：转圈 + 「思考中」；工具查询账目阶段显示「查询中」
+            // 首帧前的等待态：转圈 + 「思考中」；工具阶段按读写区分「查询中/写入中」
             <View className="flex-row items-center gap-2">
               <ActivityIndicator size="small" />
               <Text className="text-xs text-muted-foreground">
-                {message.phase === 'querying' ? t('aiAgent.querying') : t('aiAgent.thinking')}
+                {message.phase === 'querying'
+                  ? t('aiAgent.querying')
+                  : message.phase === 'writing'
+                    ? t('aiAgent.writing')
+                    : t('aiAgent.thinking')}
               </Text>
             </View>
           ) : (
@@ -159,6 +163,12 @@ function ChatBubbleImpl({ message }: ChatBubbleProps) {
         {/* 请求失败：正文下方补一行失败提示 */}
         {failed && (
           <Text className="mt-1 text-xs text-destructive">{t('aiAgent.assistantFailed')}</Text>
+        )}
+        {/* token 消耗：助手消息完成且拿到用量时，正文下方补一行小字（未上报/历史消息不展示） */}
+        {!isUser && !streaming && !failed && message.tokenUsage != null && (
+          <Text className="mt-1 text-xs text-muted-foreground">
+            {t('aiAgent.tokenUsage', { total: message.tokenUsage.total_tokens })}
+          </Text>
         )}
       </View>
     </View>

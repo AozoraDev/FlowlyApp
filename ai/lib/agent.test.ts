@@ -3,11 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAgentChat } from './agent';
 import type { ChatMessage } from './chat';
 import { streamChatCompletion } from './chatStream';
-import { getChatTools, runTool } from './tools';
+import { getChatTools, isHelpTool, isWriteTool, runTool } from './tools';
 
 // 工具执行与底层流式请求全部 mock，runAgentChat 只测多轮编排逻辑
 vi.mock('./chatStream', () => ({ streamChatCompletion: vi.fn() }));
-vi.mock('./tools', () => ({ getChatTools: vi.fn(() => []), runTool: vi.fn() }));
+vi.mock('./tools', () => ({
+  getChatTools: vi.fn(() => []),
+  runTool: vi.fn(),
+  isWriteTool: vi.fn(() => false),
+  isHelpTool: vi.fn(() => false),
+}));
 
 const config = { url: 'https://api.example.com/v1', apiKey: 'key', model: 'm' };
 const history: ChatMessage[] = [
@@ -34,7 +39,9 @@ describe('runAgentChat', () => {
     });
 
     const result = await runAgentChat(baseParams);
-    expect(result).toBe('今天天气很好');
+    expect(result.content).toBe('今天天气很好');
+    // 本轮未回调 usage（provider 未上报）时返回 null
+    expect(result.usage).toBeNull();
     expect(streamChatCompletion).toHaveBeenCalledTimes(1);
   });
 
@@ -53,8 +60,9 @@ describe('runAgentChat', () => {
     vi.mocked(runTool).mockResolvedValue('{"ok":true,"sections":[{"id":1,"name":"日常"}]}');
 
     const result = await runAgentChat(baseParams);
-    expect(result).toBe('你的项目有：日常、旅行');
-    expect(runTool).toHaveBeenCalledWith('list_sections', '{"page":1}', 'u1');
+    expect(result.content).toBe('你的项目有：日常、旅行');
+    // 未传 language 时工具语言回退 zh（runAgentChat 内部归一化后再传给 runTool）
+    expect(runTool).toHaveBeenCalledWith('list_sections', '{"page":1}', 'u1', 'zh');
 
     const calls = vi.mocked(streamChatCompletion).mock.calls;
     expect(calls).toHaveLength(2);
@@ -73,6 +81,24 @@ describe('runAgentChat', () => {
       tool_call_id: 'call_1',
       content: '{"ok":true,"sections":[{"id":1,"name":"日常"}]}',
     });
+  });
+
+  it('含写入工具的一轮推进 writing 阶段（记一笔时气泡显示「写入中」）', async () => {
+    const onPhase = vi.fn();
+    vi.mocked(isWriteTool).mockImplementation((name) => name === 'add_item');
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'add_item', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('已记录');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat({ ...baseParams, onPhase });
+    expect(onPhase).toHaveBeenNthCalledWith(1, 'thinking');
+    expect(onPhase).toHaveBeenNthCalledWith(2, 'writing');
+    expect(onPhase).toHaveBeenNthCalledWith(3, 'thinking');
   });
 
   it('onPhase 按 思考中→查询中→思考中 推进', async () => {
@@ -114,5 +140,76 @@ describe('runAgentChat', () => {
       name: 'AbortError',
     });
     expect(runTool).not.toHaveBeenCalled();
+  });
+
+  it('多轮工具对话：跨轮累计 token 用量并随结果返回', async () => {
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        // 第一轮工具调用末帧带 usage
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'list_sections', arguments: '{}' }]);
+        params.onUsage?.({ prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 });
+      })
+      .mockImplementationOnce(async (params) => {
+        // 第二轮内容末帧带 usage，两轮用量应累加
+        params.onDelta('完成');
+        params.onUsage?.({ prompt_tokens: 150, completion_tokens: 30, total_tokens: 180 });
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    const result = await runAgentChat(baseParams);
+    expect(result.content).toBe('完成');
+    expect(result.usage).toEqual({
+      prompt_tokens: 250,
+      completion_tokens: 50,
+      total_tokens: 300,
+    });
+  });
+
+  it('一轮内多次 usage 回调以后者为准（多帧携带时避免重复累加）', async () => {
+    vi.mocked(streamChatCompletion).mockImplementationOnce(async (params) => {
+      // 同一轮内先出现一次 usage 又被末帧覆盖：最终只取末帧值
+      params.onUsage?.({ prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 });
+      params.onDelta('好');
+      params.onUsage?.({ prompt_tokens: 10, completion_tokens: 8, total_tokens: 18 });
+    });
+
+    const result = await runAgentChat(baseParams);
+    expect(result.usage).toEqual({
+      prompt_tokens: 10,
+      completion_tokens: 8,
+      total_tokens: 18,
+    });
+  });
+
+  it('传 language 给 runTool（get_help 据此返回对应语言文案）', async () => {
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'get_help', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('我可以帮你查账…');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat({ ...baseParams, language: 'en' });
+    expect(runTool).toHaveBeenCalledWith('get_help', '{}', 'u1', 'en');
+  });
+
+  it('get_help 工具轮保持 thinking 阶段（不显示「查询账目中」）', async () => {
+    const onPhase = vi.fn();
+    vi.mocked(isHelpTool).mockImplementation((name) => name === 'get_help');
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'get_help', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('我可以帮你查账、记一笔、建项目…');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat({ ...baseParams, onPhase });
+    expect(onPhase).toHaveBeenNthCalledWith(1, 'thinking');
+    expect(onPhase).toHaveBeenNthCalledWith(2, 'thinking');
+    expect(onPhase).toHaveBeenNthCalledWith(3, 'thinking');
   });
 });

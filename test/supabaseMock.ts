@@ -7,7 +7,18 @@ export type QueryResult = { data: unknown; error: null | Error; count?: number }
 // 方法名需覆盖 sections.ts / items.ts 中用到的全部链式操作。
 export function mockQuery(result: QueryResult) {
   const q: Record<string, any> = { ...result };
-  for (const method of ['select', 'eq', 'order', 'range', 'insert', 'update', 'delete', 'single']) {
+  for (const method of [
+    'select',
+    'eq',
+    'gte',
+    'lt',
+    'order',
+    'range',
+    'insert',
+    'update',
+    'delete',
+    'single',
+  ]) {
     q[method] = vi.fn().mockReturnValue(q);
   }
   return q;

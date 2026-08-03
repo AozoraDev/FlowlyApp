@@ -20,7 +20,9 @@ export async function createAiMessage(input: z.input<typeof aiMessageInsertSchem
   )
     .from('ai_messages')
     .insert(parsed)
-    .select('id, uid, chat_id, is_user, content, created_at')
+    .select(
+      'id, uid, chat_id, is_user, content, created_at, prompt_tokens, completion_tokens, total_tokens'
+    )
     .single<AiMessage>();
 
   if (error) throw error;
@@ -37,7 +39,9 @@ export async function listAiMessages(userId: string, chatId: number) {
     await supabase()
   )
     .from('ai_messages')
-    .select('id, uid, chat_id, is_user, content, created_at')
+    .select(
+      'id, uid, chat_id, is_user, content, created_at, prompt_tokens, completion_tokens, total_tokens'
+    )
     .eq('uid', userId)
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true })

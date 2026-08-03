@@ -36,20 +36,30 @@ export async function createItem(input: z.input<typeof itemInsertSchema>) {
 /**
  * 按页查询某项目下的流水明细（items）
  * 后端分页：range 只取当前页，count 精确统计整表匹配总数，翻页由服务端驱动而非前端切片；
- * 按 uid + section_id 双重限定归属，创建时间倒序，每行经 Zod 校验，确保运行时的脏数据不会进入内部
+ * 按 uid + section_id 双重限定归属，创建时间倒序，每行经 Zod 校验，确保运行时的脏数据不会进入内部；
+ * from/to 为可选时间范围（ISO，缺省不限），半开区间 [from, to)，只按流水消费时间 created_at 过滤，
+ * 与项目创建时间 sections.created_at 无关联，绝不参与过滤
  */
-export async function listItems(userId: string, sectionId: number, page: number, pageSize: number) {
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  const { data, error, count } = await (
-    await supabase()
-  )
+export async function listItems(
+  userId: string,
+  sectionId: number,
+  page: number,
+  pageSize: number,
+  from?: string,
+  to?: string
+) {
+  const fromIdx = (page - 1) * pageSize;
+  const toIdx = fromIdx + pageSize - 1;
+  let query = (await supabase())
     .from('items')
     .select('*', { count: 'exact' })
     .eq('uid', userId)
-    .eq('section_id', sectionId)
+    .eq('section_id', sectionId);
+  if (from != null) query = query.gte('created_at', from);
+  if (to != null) query = query.lt('created_at', to);
+  const { data, error, count } = await query
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .range(fromIdx, toIdx);
 
   if (error) throw error;
   return itemsPageSchema.parse({ items: data ?? [], total: count ?? 0 });
@@ -75,10 +85,15 @@ export async function getSectionSummary(userId: string, sectionId: number) {
  * 查询当前用户全部项目的收支汇总（服务端聚合 RPC）
  * 由 Postgres 函数 get_section_summaries 按 section_id 分组一次性聚合，
  * 替代原先全量拉取明细投影再客户端分组求和，流水量大时只传 N 行汇总而非全量明细；
- * 批量用 z.array 解析，比逐行 parse 更快更简洁
+ * from/to 为可选时间范围（ISO，缺省不限），半开区间 [p_from, p_to)，只按流水消费时间
+ * created_at 过滤，与项目创建时间无关联，绝不参与过滤；批量用 z.array 解析，比逐行 parse 更快更简洁
  */
-export async function getSectionSummaries(userId: string) {
-  const { data, error } = await (await supabase()).rpc('get_section_summaries', { p_uid: userId });
+export async function getSectionSummaries(userId: string, from?: string, to?: string) {
+  // RPC 参数按需携带时间范围，缺省不传（Postgres 侧 default null）保持首页全时段行为不变
+  const params: Record<string, unknown> = { p_uid: userId };
+  if (from != null) params.p_from = from;
+  if (to != null) params.p_to = to;
+  const { data, error } = await (await supabase()).rpc('get_section_summaries', params);
 
   if (error) throw error;
   return sectionSummaryRowSchema.array().parse(data ?? []);
