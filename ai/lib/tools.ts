@@ -118,6 +118,8 @@ type ToolDef = {
   write?: boolean;
   // 帮助型工具（get_help）：执行轮占位气泡保持「思考中」，不误显示「查询账目中」
   help?: boolean;
+  // 查询型工具（只读返回真实账目数据）：执行后 agent 注入 A2UI 表格格式规范，让模型组装数据卡片
+  query?: boolean;
 };
 
 /** 列出用户全部项目：id + 名称 + 选中态（供模型确定有哪些项目、拿 sectionId） */
@@ -217,9 +219,13 @@ async function runGetHelp(_args: unknown, { language }: ToolCtx): Promise<string
 
 const REGISTRY: Record<string, ToolDef> = {
   get_help: { paramsSchema: helpArgsSchema, run: runGetHelp, help: true },
-  list_sections: { paramsSchema: listSectionsArgsSchema, run: runListSections },
-  get_account_summaries: { paramsSchema: accountSummariesArgsSchema, run: runAccountSummaries },
-  list_items: { paramsSchema: listItemsArgsSchema, run: runListItems },
+  list_sections: { paramsSchema: listSectionsArgsSchema, run: runListSections, query: true },
+  get_account_summaries: {
+    paramsSchema: accountSummariesArgsSchema,
+    run: runAccountSummaries,
+    query: true,
+  },
+  list_items: { paramsSchema: listItemsArgsSchema, run: runListItems, query: true },
   create_section: { paramsSchema: createSectionArgsSchema, run: runCreateSection, write: true },
   add_item: { paramsSchema: addItemArgsSchema, run: runAddItem, write: true },
 };
@@ -232,6 +238,11 @@ export function isWriteTool(name: string): boolean {
 /** 是否帮助型工具（get_help）：不查账不落库，agent 据此让执行轮占位气泡保持「思考中」 */
 export function isHelpTool(name: string): boolean {
   return REGISTRY[name]?.help ?? false;
+}
+
+/** 是否查询型工具（只读返回账目数据）：agent 据此在数据到达后注入 A2UI 表格格式规范，帮助/写入不注入 */
+export function isQueryTool(name: string): boolean {
+  return REGISTRY[name]?.query ?? false;
 }
 
 /**
@@ -285,8 +296,8 @@ export function getChatTools(language: string): ChatTool[] {
       function: {
         name: 'get_account_summaries',
         description: zh
-          ? '查询各项目收支结余及合计。可选 from/to 限定时间段（ISO 日期或时间，如 "2026-08-01"，左闭右开，本地时区，只按流水消费时间过滤）。问整体收支/结余或某段时期时调用。'
-          : 'Income/expense/balance per section plus a grand total. Optional from/to limit the range (ISO date/time, half-open, local timezone, transaction time only). Call for overall spending, balances, or a specific period.',
+          ? '查询各项目收支结余及合计。from/to 可选（ISO 日期或时间，如 "2026-08-01"，左闭右开，本地时区，只按流水消费时间过滤）。问整体收支/结余或某段时期时调用。'
+          : 'Income/expense/balance per section plus a grand total. from/to optional (ISO date/time, half-open, local timezone, transaction time only). Call for overall spending, balances, or a specific period.',
         parameters: toToolJsonSchema(accountSummariesArgsSchema),
       },
     },
@@ -295,8 +306,8 @@ export function getChatTools(language: string): ChatTool[] {
       function: {
         name: 'list_items',
         description: zh
-          ? '查询某项目的流水明细（金额、方向、备注、时间）。sectionId 来自 list_sections；page/pageSize 可选（默认 1/20）；from/to 可选（ISO 日期或时间，如 "2026-08-01"，左闭右开，本地时区，只按流水消费时间过滤）。'
-          : 'Transaction items of one section (amount, direction, reason, time). sectionId comes from list_sections; page/pageSize optional (default 1/20); optional from/to (ISO date/time, e.g. "2026-08-01", half-open, local timezone, transaction time only).',
+          ? '查询某项目的流水明细（金额、方向、备注、时间）。sectionId 来自 list_sections；page/pageSize 可选（默认 1/20）；from/to 可选，语义同 get_account_summaries。'
+          : 'Transaction items of one section (amount, direction, reason, time). sectionId from list_sections; page/pageSize optional (default 1/20); from/to optional, same semantics as get_account_summaries.',
         parameters: toToolJsonSchema(listItemsArgsSchema),
       },
     },

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  HISTORY_WINDOW,
   accumulateToolCalls,
   buildChatCompletionsUrl,
   buildChatMessages,
   chatIdSchema,
+  condenseHistory,
   createSseLineSplitter,
   extractDelta,
   finalizeToolCalls,
@@ -17,6 +19,15 @@ import {
   type ChatMessage,
   type ToolCallAccumulator,
 } from './chat';
+
+/** 生成 user/assistant 交替的历史消息（偶数下标为 user），供窗口化用例构造长会话 */
+function makeHistory(n: number): ChatMessage[] {
+  return Array.from({ length: n }, (_, i) => ({
+    id: String(i),
+    role: i % 2 === 0 ? 'user' : 'assistant',
+    content: `msg${i}`,
+  }));
+}
 
 describe('messageSchema', () => {
   it('接受去空格后非空的输入', () => {
@@ -221,6 +232,88 @@ describe('buildChatMessages', () => {
       { id: '3', role: 'assistant', content: '', status: 'error' },
     ];
     expect(buildChatMessages('你是助手', withError)).toHaveLength(3);
+  });
+});
+
+describe('buildChatMessages 历史窗口', () => {
+  it('超过窗口：system + 一条前情摘要 + 最近窗口内消息原样', () => {
+    const history = makeHistory(16);
+    const result = buildChatMessages('你是助手', history);
+    // 16 条 > 10：system(1) + 摘要(1) + 最近 10 条
+    expect(result).toHaveLength(12);
+    expect(result[0]).toEqual({ role: 'system', content: '你是助手' });
+    // 窗口外前 6 条（3 轮）压缩成一条摘要
+    expect(result[1]).toEqual({
+      role: 'user',
+      content: '更早对话摘要：「msg0」→「msg1」；「msg2」→「msg3」；「msg4」→「msg5」',
+    });
+    // 最近 10 条原样跟随（溢出后窗口起点是 msg6）
+    expect(result[2]).toEqual({ role: 'user', content: 'msg6' });
+    expect(result[result.length - 1]).toEqual({ role: 'assistant', content: 'msg15' });
+  });
+
+  it('等于窗口时全部原样，不插摘要', () => {
+    const history = makeHistory(HISTORY_WINDOW);
+    const result = buildChatMessages('你是助手', history);
+    expect(result).toHaveLength(HISTORY_WINDOW + 1);
+    expect(result[1]).toEqual({ role: 'user', content: 'msg0' });
+    expect(result).not.toContainEqual(
+      expect.objectContaining({ content: expect.stringContaining('更早对话摘要') })
+    );
+  });
+
+  it('streaming/error 先剔除再算窗：剔除后恰在窗口内则无摘要', () => {
+    const history: ChatMessage[] = [
+      ...makeHistory(HISTORY_WINDOW),
+      { id: 's', role: 'assistant', content: '', status: 'streaming' },
+      { id: 'e', role: 'assistant', content: 'err', status: 'error' },
+    ];
+    const result = buildChatMessages('你是助手', history);
+    expect(result).toHaveLength(HISTORY_WINDOW + 1);
+    expect(result).not.toContainEqual(
+      expect.objectContaining({ content: expect.stringContaining('更早对话摘要') })
+    );
+  });
+
+  it('自定义窗口参数覆盖默认值', () => {
+    const history = makeHistory(6);
+    const result = buildChatMessages('你是助手', history, { historyWindow: 2 });
+    expect(result).toHaveLength(1 + 1 + 2);
+    expect(result[1]).toEqual({
+      role: 'user',
+      content: '更早对话摘要：「msg0」→「msg1」；「msg2」→「msg3」',
+    });
+    expect(result[2]).toEqual({ role: 'user', content: 'msg4' });
+  });
+});
+
+describe('condenseHistory', () => {
+  it('按 (问→答) 配对压缩成单行摘要', () => {
+    expect(condenseHistory(makeHistory(6))).toBe(
+      '更早对话摘要：「msg0」→「msg1」；「msg2」→「msg3」；「msg4」→「msg5」'
+    );
+  });
+
+  it('超过保留轮数时只留最近几轮并计数省略更早的', () => {
+    expect(condenseHistory(makeHistory(10))).toBe(
+      '更早对话摘要：「msg4」→「msg5」；「msg6」→「msg7」；「msg8」→「msg9」；更早 4 条省略'
+    );
+  });
+
+  it('单条文本超长截断加省略号，换行压成空格', () => {
+    const overflow: ChatMessage[] = [
+      { id: 'u', role: 'user', content: 'a'.repeat(50) },
+      { id: 'a', role: 'assistant', content: 'line1\nline2 ' + 'b'.repeat(70) },
+    ];
+    // user 截 40 字；assistant 截 60 字（"line1 line2 " 占 12 字 → 余 48 个 b）
+    expect(condenseHistory(overflow)).toBe(
+      `更早对话摘要：「${'a'.repeat(40)}…」→「line1 line2 ${'b'.repeat(48)}…」`
+    );
+  });
+
+  it('无可配对轮次或空输入返回 null', () => {
+    expect(condenseHistory([{ id: 'u', role: 'user', content: 'hi' }])).toBeNull();
+    expect(condenseHistory([])).toBeNull();
   });
 });
 

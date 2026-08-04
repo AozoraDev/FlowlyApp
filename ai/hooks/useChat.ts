@@ -172,11 +172,14 @@ export function useChat({ chatId, userId, config }: UseChatOptions) {
       ]);
     },
     onSuccess: (data) => {
-      // 完成：把助手占位从 streaming 标记为已完成（status 置空），并补上本轮 token 用量供气泡展示
+      // 完成：把助手占位从 streaming 标记为已完成（status 置空），并补上本轮 token 用量供气泡展示。
+      // 正文以 runAgentChat 返回值（data.content）回填——汇总卡片块是 agent 在流结束后追加的，
+      // 只存在于返回值、不经 onDelta；若只用 onDelta 拼内容，实时气泡会缺卡片、重进会话才显示。
+      // 统一以返回值覆盖，实时与落库内容一致，也兼容未来任何确定性追加
       commit((prev) =>
         prev.map((m, i) =>
           i === prev.length - 1 && m.role === 'assistant'
-            ? { ...m, status: undefined, tokenUsage: data.usage }
+            ? { ...m, status: undefined, content: data.content, tokenUsage: data.usage }
             : m
         )
       );

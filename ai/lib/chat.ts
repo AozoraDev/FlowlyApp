@@ -237,21 +237,70 @@ export function finalizeToolCalls(acc: Record<number, ToolCallAccumulator>): Too
 /**
  * 组装发给模型的 messages：system 提示词 + 已完成的历史对话。
  * 剔除 streaming 占位（未完成）与 error 消息（失败回答），避免把半截/错误内容喂给模型当上下文。
+ * 历史分层：超过 HISTORY_WINDOW 的旧消息不再逐条重发（长会话 prompt 无上限增长的最大头），
+ * 而是由 condenseHistory 压成一条 user「前情」摘要注入；窗口内最近消息原样跟随。
+ * 注意：压缩摘要与 A2UI 格式（见 agent.ts）都只做「削减/按需」，系统提示词保持同日字节级稳定，
+ * 配合工具定义构成可命中前缀缓存（DeepSeek/Kimi/OpenRouter 自动缓存）的稳定前缀。
  */
+
+// 历史窗口：发给模型的最近消息条数。账目数据每次经工具现查、答案自包含，
+// 旧对话主要是话题连续性，超窗压缩不会影响单条回答的正确性
+export const HISTORY_WINDOW = 10;
+
+// 压缩「前情」时最多保留的溢出轮数（一轮 = 一条 user + 一条 assistant），更早的全部省略并计数标注
+const OVERFLOW_TURNS = 3;
+
+/** 取单条消息要点：换行压缩为空格，超长截断加省略号（「前情」摘要单行化用） */
+function excerpt(text: string, max: number): string {
+  const single = text.replace(/\s+/g, ' ').trim();
+  return single.length <= max ? single : `${single.slice(0, max)}…`;
+}
+
+/**
+ * 把溢出历史压缩成一条「前情」摘要：从后往前按 (问→答) 配对，保留最近的 OVERFLOW_TURNS 轮，
+ * 每轮浓缩为 「{问}」→「{答}」 后用分号拼成一行；更早的轮按消息数标注省略。
+ * 程序化精简（不额外调 LLM 概括——那会多花一次调用把省下的 token 又用掉），纯函数便于单测。
+ * 无有效轮次返回 null，调用方据此不注入摘要。
+ */
+export function condenseHistory(overflow: readonly ChatMessage[]): string | null {
+  const pairs: [string, string][] = [];
+  for (let i = overflow.length - 1; i >= 0 && pairs.length < OVERFLOW_TURNS; i--) {
+    const a = overflow[i];
+    if (!a || a.role !== 'assistant') continue;
+    const q = overflow[i - 1];
+    if (!q || q.role !== 'user') continue;
+    pairs.push([excerpt(q.content, 40), excerpt(a.content, 60)]);
+    i -= 1; // 跳过已被消费的 user 消息，避免同一轮被重复配对
+  }
+  if (pairs.length === 0) return null;
+  pairs.reverse(); // 按时间正序输出
+  const body = pairs.map(([q, a]) => `「${q}」→「${a}」`).join('；');
+  const skipped = overflow.length - pairs.length * 2;
+  return `更早对话摘要：${body}${skipped > 0 ? `；更早 ${skipped} 条省略` : ''}`;
+}
+
 export function buildChatMessages(
   systemPrompt: string,
-  history: readonly ChatMessage[]
+  history: readonly ChatMessage[],
+  opts?: { historyWindow?: number }
 ): ChatCompletionMessage[] {
-  return [
-    { role: 'system', content: systemPrompt },
-    ...history
-      .filter((m) => m.status !== 'streaming' && m.status !== 'error')
-      .map((m): ChatCompletionMessage =>
-        m.role === 'user'
-          ? { role: 'user', content: m.content }
-          : { role: 'assistant', content: m.content }
-      ),
-  ];
+  const window = opts?.historyWindow ?? HISTORY_WINDOW;
+  const filtered = history.filter((m) => m.status !== 'streaming' && m.status !== 'error');
+  const messages: ChatCompletionMessage[] = [{ role: 'system', content: systemPrompt }];
+  const recent = filtered.slice(-window);
+  // 超窗：窗口外更早的对话压缩成一条 user「前情」摘要插在 system 之后；未超窗则与以前行为完全一致
+  if (filtered.length > window) {
+    const condensed = condenseHistory(filtered.slice(0, -window));
+    if (condensed) messages.push({ role: 'user', content: condensed });
+  }
+  for (const m of recent) {
+    messages.push(
+      m.role === 'user'
+        ? { role: 'user', content: m.content }
+        : { role: 'assistant', content: m.content }
+    );
+  }
+  return messages;
 }
 
 /** 会话标题：取首条用户消息前 20 字，连续空白压缩为单个空格、超长加省略号；列表与详情页共用同一来源 */

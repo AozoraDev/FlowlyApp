@@ -7,6 +7,7 @@ import {
   addItemArgsSchema,
   createSectionArgsSchema,
   isHelpTool,
+  isQueryTool,
   isWriteTool,
   listItemsArgsSchema,
   runTool,
@@ -354,7 +355,7 @@ describe('get_help（帮助说明）', () => {
   });
 });
 
-describe('isWriteTool / isHelpTool', () => {
+describe('isWriteTool / isHelpTool / isQueryTool', () => {
   it('写入工具返回 true，读取/帮助/未知工具返回 false', () => {
     expect(isWriteTool('add_item')).toBe(true);
     expect(isWriteTool('create_section')).toBe(true);
@@ -369,5 +370,15 @@ describe('isWriteTool / isHelpTool', () => {
     expect(isHelpTool('list_sections')).toBe(false);
     expect(isHelpTool('add_item')).toBe(false);
     expect(isHelpTool('nope')).toBe(false);
+  });
+
+  it('只读查询工具返回 true，帮助/写入/未知工具返回 false', () => {
+    expect(isQueryTool('list_sections')).toBe(true);
+    expect(isQueryTool('get_account_summaries')).toBe(true);
+    expect(isQueryTool('list_items')).toBe(true);
+    expect(isQueryTool('get_help')).toBe(false);
+    expect(isQueryTool('create_section')).toBe(false);
+    expect(isQueryTool('add_item')).toBe(false);
+    expect(isQueryTool('nope')).toBe(false);
   });
 });

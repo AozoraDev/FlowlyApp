@@ -25,7 +25,31 @@ export type StreamChatParams = {
   onToolCalls?: (deltas: StreamToolCallDelta[]) => void;
   // 流式末帧 token 用量回调（请求带 stream_options.include_usage，标准协议一轮至多回调一次）
   onUsage?: (usage: TokenUsage) => void;
+  // 单轮输出 token 上限：请求体带 max_tokens，超限即截断；不传则不设上限
+  maxTokens?: number;
 };
+
+/**
+ * 构建 chat/completions 请求体：纯函数便于单测。
+ * max_tokens 仅在显式传入时写入——不同 OpenAI 兼容端点对未用参数的容忍度不一，不传即不带该键。
+ */
+export function buildChatBody(params: {
+  model: string;
+  messages: ChatCompletionMessage[];
+  tools?: ChatTool[];
+  maxTokens?: number;
+}): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model: params.model,
+    messages: params.messages,
+    stream: true,
+    // 请求流式末帧回传 usage，用于展示本轮 token 消耗；不支持该参数的端点忽略即可
+    stream_options: { include_usage: true },
+  };
+  if (params.tools?.length) body.tools = params.tools;
+  if (params.maxTokens != null) body.max_tokens = params.maxTokens;
+  return body;
+}
 
 /**
  * 流式聊天请求：POST {baseUrl}/chat/completions（stream: true），
@@ -41,15 +65,9 @@ export async function streamChatCompletion({
   tools,
   onToolCalls,
   onUsage,
+  maxTokens,
 }: StreamChatParams): Promise<void> {
-  const body: Record<string, unknown> = {
-    model: config.model,
-    messages,
-    stream: true,
-    // 请求流式末帧回传 usage，用于展示本轮 token 消耗；不支持该参数的端点忽略即可
-    stream_options: { include_usage: true },
-  };
-  if (tools?.length) body.tools = tools;
+  const body = buildChatBody({ model: config.model, messages, tools, maxTokens });
 
   const res = await expoFetch(buildChatCompletionsUrl(config.url), {
     method: 'POST',
