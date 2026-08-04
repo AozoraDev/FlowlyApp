@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runAgentChat } from './agent';
+import { DEFAULT_MAX_TOKENS, runAgentChat } from './agent';
 import type { ChatMessage } from './chat';
 import { streamChatCompletion } from './chatStream';
-import { getChatTools, isHelpTool, isWriteTool, runTool } from './tools';
+import { getA2uiFormat, getSummaryNote } from '../prompt/systemPrompt';
+import { buildSummaryApp, type AccountSummaryResult } from './a2uiPresets';
+import { getChatTools, isHelpTool, isQueryTool, isWriteTool, runTool } from './tools';
 
 // 工具执行与底层流式请求全部 mock，runAgentChat 只测多轮编排逻辑
 vi.mock('./chatStream', () => ({ streamChatCompletion: vi.fn() }));
@@ -12,6 +14,7 @@ vi.mock('./tools', () => ({
   runTool: vi.fn(),
   isWriteTool: vi.fn(() => false),
   isHelpTool: vi.fn(() => false),
+  isQueryTool: vi.fn(() => false),
 }));
 
 const config = { url: 'https://api.example.com/v1', apiKey: 'key', model: 'm' };
@@ -43,6 +46,26 @@ describe('runAgentChat', () => {
     // 本轮未回调 usage（provider 未上报）时返回 null
     expect(result.usage).toBeNull();
     expect(streamChatCompletion).toHaveBeenCalledTimes(1);
+  });
+
+  it('未传 maxTokens 时给单轮输出带上限（默认值 2500）', async () => {
+    vi.mocked(streamChatCompletion).mockImplementationOnce(async (params) => {
+      params.onDelta('好');
+    });
+
+    await runAgentChat(baseParams);
+    expect(streamChatCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({ maxTokens: DEFAULT_MAX_TOKENS })
+    );
+  });
+
+  it('调用方传入 maxTokens 时覆盖默认上限', async () => {
+    vi.mocked(streamChatCompletion).mockImplementationOnce(async (params) => {
+      params.onDelta('好');
+    });
+
+    await runAgentChat({ ...baseParams, maxTokens: 600 });
+    expect(streamChatCompletion).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: 600 }));
   });
 
   it('工具轮 + 内容轮：执行工具并把 assistant(tool_calls)+tool 结果带入第二轮', async () => {
@@ -211,5 +234,182 @@ describe('runAgentChat', () => {
     expect(onPhase).toHaveBeenNthCalledWith(1, 'thinking');
     expect(onPhase).toHaveBeenNthCalledWith(2, 'thinking');
     expect(onPhase).toHaveBeenNthCalledWith(3, 'thinking');
+  });
+
+  it('查询工具轮后：tool 结果之后追加一条 zh A2UI 格式 system 消息', async () => {
+    vi.mocked(isQueryTool).mockImplementation((name) => name === 'list_sections');
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'list_sections', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('完成');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat(baseParams);
+    const secondMessages = vi.mocked(streamChatCompletion).mock.calls[1][0].messages;
+    // system(基础)…tool 结果之后、助手生成之前追加 A2UI 规范
+    expect(secondMessages[secondMessages.length - 1]).toEqual({
+      role: 'system',
+      content: getA2uiFormat('zh'),
+    });
+  });
+
+  it('language 传 en 时注入英文 A2UI 格式', async () => {
+    vi.mocked(isQueryTool).mockImplementation((name) => name === 'list_sections');
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'list_sections', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('done');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat({ ...baseParams, language: 'en' });
+    const secondMessages = vi.mocked(streamChatCompletion).mock.calls[1][0].messages;
+    expect(secondMessages[secondMessages.length - 1]).toEqual({
+      role: 'system',
+      content: getA2uiFormat('en'),
+    });
+  });
+
+  it('同一请求内多轮查询只注入一次 A2UI 格式', async () => {
+    vi.mocked(isQueryTool).mockImplementation((name) => name === 'list_sections');
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c1', name: 'list_sections', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        // 第二轮仍调查询工具（拿到 sectionId 后再查明细的场景），不应再注入第二条
+        params.onToolCalls?.([{ index: 0, id: 'c2', name: 'list_sections', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('完成');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat(baseParams);
+    const calls = vi.mocked(streamChatCompletion).mock.calls;
+    expect(calls).toHaveLength(3);
+    // messages 数组在多轮循环内原地累积（各轮 stream 拿到同一引用），
+    // 故对最终轮的状态断言：整条序列中 A2UI 格式恰好一条
+    const finalMessages = calls[2][0].messages;
+    const a2ui = finalMessages.filter(
+      (m) => m.role === 'system' && m.content === getA2uiFormat('zh')
+    );
+    expect(a2ui).toHaveLength(1);
+    // 且注入位置在首个查询轮 tool 结果之后、第二轮查询的 assistant(tool_calls) 之前
+    const a2uiIdx = finalMessages.findIndex(
+      (m) => m.role === 'system' && m.content === getA2uiFormat('zh')
+    );
+    const c2AssistantIdx = finalMessages.findIndex(
+      (m) => m.role === 'assistant' && m.tool_calls?.[0]?.id === 'c2'
+    );
+    expect(a2uiIdx).toBeGreaterThan(-1);
+    expect(c2AssistantIdx).toBeGreaterThan(a2uiIdx);
+  });
+
+  it('写入/帮助工具轮不注入 A2UI 格式', async () => {
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([{ index: 0, id: 'c', name: 'add_item', arguments: '{}' }]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('已记录');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":true}');
+
+    await runAgentChat(baseParams);
+    const secondMessages = vi.mocked(streamChatCompletion).mock.calls[1][0].messages;
+    expect(
+      secondMessages.filter((m) => m.role === 'system' && m.content === getA2uiFormat('zh'))
+    ).toHaveLength(0);
+  });
+
+  it('汇总轮：注入汇总说明，收尾追加代码生成的汇总卡片块', async () => {
+    vi.mocked(isQueryTool).mockImplementation((name) => name === 'get_account_summaries');
+    const summaryJson = JSON.stringify({
+      ok: true,
+      rows: [{ sectionId: 1, name: '日常', income: 300, expense: 100, balance: 200 }],
+      total: { income: 300, expense: 100, balance: 200 },
+    });
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([
+          { index: 0, id: 'c', name: 'get_account_summaries', arguments: '{}' },
+        ]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('本月结余 200 元。');
+      });
+    vi.mocked(runTool).mockResolvedValue(summaryJson);
+
+    const result = await runAgentChat({ ...baseParams, language: 'zh' });
+    // 第二轮 messages：tool 结果后依次追加 A2UI 格式 + 汇总说明
+    const secondMessages = vi.mocked(streamChatCompletion).mock.calls[1][0].messages;
+    expect(secondMessages[secondMessages.length - 2]).toEqual({
+      role: 'system',
+      content: getA2uiFormat('zh'),
+    });
+    expect(secondMessages[secondMessages.length - 1]).toEqual({
+      role: 'system',
+      content: getSummaryNote('zh'),
+    });
+    // 最终内容 = 模型正文 + 代码确定性生成的汇总卡片块（含三卡与各项目表）
+    const summary: AccountSummaryResult = {
+      ok: true,
+      rows: [{ sectionId: 1, name: '日常', income: 300, expense: 100, balance: 200 }],
+      total: { income: 300, expense: 100, balance: 200 },
+    };
+    expect(result.content).toBe(
+      `本月结余 200 元。\n\`\`\`a2ui\n${JSON.stringify(buildSummaryApp(summary, 'zh'))}\n\`\`\``
+    );
+  });
+
+  it('汇总轮 language=en：注入英文说明，卡片用英文文案', async () => {
+    vi.mocked(isQueryTool).mockImplementation((name) => name === 'get_account_summaries');
+    const summaryJson = JSON.stringify({
+      ok: true,
+      rows: [{ sectionId: 1, name: 'Daily', income: 300, expense: 100, balance: 200 }],
+      total: { income: 300, expense: 100, balance: 200 },
+    });
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([
+          { index: 0, id: 'c', name: 'get_account_summaries', arguments: '{}' },
+        ]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('Balance is 200.');
+      });
+    vi.mocked(runTool).mockResolvedValue(summaryJson);
+
+    const result = await runAgentChat({ ...baseParams, language: 'en' });
+    const secondMessages = vi.mocked(streamChatCompletion).mock.calls[1][0].messages;
+    expect(secondMessages[secondMessages.length - 1]).toEqual({
+      role: 'system',
+      content: getSummaryNote('en'),
+    });
+    expect(result.content).toContain('Total income');
+    expect(result.content).toContain('```a2ui');
+  });
+
+  it('汇总工具失败（ok:false）：不追加卡片块，只回模型正文', async () => {
+    vi.mocked(isQueryTool).mockImplementation((name) => name === 'get_account_summaries');
+    vi.mocked(streamChatCompletion)
+      .mockImplementationOnce(async (params) => {
+        params.onToolCalls?.([
+          { index: 0, id: 'c', name: 'get_account_summaries', arguments: '{}' },
+        ]);
+      })
+      .mockImplementationOnce(async (params) => {
+        params.onDelta('查询失败，无法汇总。');
+      });
+    vi.mocked(runTool).mockResolvedValue('{"ok":false,"error":"db down"}');
+
+    const result = await runAgentChat(baseParams);
+    expect(result.content).toBe('查询失败，无法汇总。');
   });
 });

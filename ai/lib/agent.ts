@@ -10,7 +10,13 @@ import {
 } from './chat';
 import { streamChatCompletion } from './chatStream';
 import type { ModelConfig } from './modelConfig';
-import { getChatTools, isHelpTool, isWriteTool, runTool } from './tools';
+import {
+  accountSummaryResultSchema,
+  buildSummaryApp,
+  type AccountSummaryResult,
+} from './a2uiPresets';
+import { getA2uiFormat, getSummaryNote } from '../prompt/systemPrompt';
+import { getChatTools, isHelpTool, isQueryTool, isWriteTool, runTool } from './tools';
 
 export type RunAgentChatParams = {
   config: ModelConfig;
@@ -27,10 +33,18 @@ export type RunAgentChatParams = {
   onDelta: (text: string) => void;
   // 占位气泡阶段：thinking=首帧前思考，querying=查询账目，writing=写入账目
   onPhase?: (phase: AgentPhase) => void;
+  // 单轮输出 token 上限（超限兜底截断）：账目类回答以结构化卡片为主，2500 足够放下
+  // 完整的 DataGrid 数据+结论；正文精简由提示词约束，此上限只在模型输出失控时兜底。
+  // 缺省用 DEFAULT_MAX_TOKENS，调用方可覆盖
+  maxTokens?: number;
 };
 
 // 单次回答最多允许的工具轮数，防止模型反复调用工具形成死循环
 const MAX_TOOL_ROUNDS = 5;
+
+// 单轮输出 token 硬上限：账目卡片需完整展示数据，2500 留足空间；纯文本轮由提示词约束精简，
+// 上限仅在模型输出失控时兜底截断，防动辄 4000+ token 的冗余输出
+export const DEFAULT_MAX_TOKENS = 2500;
 
 /** 构造与原生 AbortError 同名同型的错误，让调用方统一的 AbortError 静默逻辑生效 */
 function abortError(): Error {
@@ -60,12 +74,18 @@ export async function runAgentChat(
   params: RunAgentChatParams
 ): Promise<{ content: string; usage: TokenUsage | null }> {
   const { config, systemPrompt, history, userId, language, signal, onDelta, onPhase } = params;
+  const maxTokens = params.maxTokens ?? DEFAULT_MAX_TOKENS;
   const messages: ChatCompletionMessage[] = buildChatMessages(systemPrompt, history);
   const lang = language ?? 'zh';
   const tools = getChatTools(lang);
   let finalText = '';
   // 多轮工具对话的 token 累计：每轮返回后合并（provider 不支持 usage 时保持 null）
   let usage: TokenUsage | null = null;
+  // A2UI 格式规范本请求是否已注入：查询工具拿到数据后才注入一次，避免后续查询轮重复携带
+  let a2uiInjected = false;
+  // get_account_summaries 返回的汇总数据：最终回答收尾时由代码确定性渲染三卡+各项目表，
+  // 不依赖模型手写卡片（杜绝漏卡/算错/时有时无）；查询失败（ok:false）时为 null 不生成
+  let pendingSummary: AccountSummaryResult | null = null;
   onPhase?.('thinking');
 
   for (let round = 0; ; round++) {
@@ -78,6 +98,7 @@ export async function runAgentChat(
       messages,
       signal,
       tools,
+      maxTokens,
       onDelta: (text) => {
         content += text;
         onDelta(text);
@@ -94,7 +115,13 @@ export async function runAgentChat(
 
     const toolCalls = finalizeToolCalls(acc);
     // 本轮没有工具调用 = 模型直接给出最终答案
-    if (toolCalls.length === 0) return { content: finalText, usage };
+    if (toolCalls.length === 0) {
+      // 有汇总数据 → 代码确定性拼出三卡+各项目表块，追加在模型正文后（正文已流式输出，追加不打断）
+      if (pendingSummary) {
+        finalText += `\n\`\`\`a2ui\n${JSON.stringify(buildSummaryApp(pendingSummary, lang))}\n\`\`\``;
+      }
+      return { content: finalText, usage };
+    }
 
     if (round >= MAX_TOOL_ROUNDS) {
       throw new Error('tool call rounds exceeded');
@@ -112,6 +139,26 @@ export async function runAgentChat(
       if (signal?.aborted) throw abortError();
       const result = await runTool(tc.function.name, tc.function.arguments, userId, lang);
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result });
+      // 汇总工具：记住 total/rows，收尾时拼进最终回答；结果解析失败（查询失败 ok:false）保持 null
+      if (tc.function.name === 'get_account_summaries') {
+        try {
+          const parsed = accountSummaryResultSchema.safeParse(JSON.parse(result));
+          if (parsed.success) pendingSummary = parsed.data;
+        } catch {
+          /* 极端兜底：结果非合法 JSON 时忽略，正常不会走到 */
+        }
+      }
+    }
+    // 查询工具返回了可渲染的账目数据 → 注入 A2UI 格式规范（每请求至多一次）：
+    // 模型下一轮组装答案时就有表格格式可用；纯文本/帮助/写入轮不携带，省掉每轮重复发送的格式 token。
+    // 基础提示词保持稳定、该规范按需追加在末尾，不破坏前缀缓存。
+    if (!a2uiInjected && toolCalls.some((tc) => isQueryTool(tc.function.name))) {
+      a2uiInjected = true;
+      messages.push({ role: 'system', content: getA2uiFormat(lang) });
+      // 汇总轮额外提醒：汇总卡片由系统生成、模型不要再输出 a2ui 块（仅汇总轮注入，其他查询轮不带）
+      if (toolCalls.some((tc) => tc.function.name === 'get_account_summaries')) {
+        messages.push({ role: 'system', content: getSummaryNote(lang) });
+      }
     }
     onPhase?.('thinking');
   }

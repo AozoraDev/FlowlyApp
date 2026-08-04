@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, View } from 'react-native';
 import { useColorScheme } from 'nativewind';
 
+import { parseA2uiBlocks } from '@/ai/lib/a2ui';
 import type { ChatMessage } from '@/ai/lib/chat';
 import { Text } from '@/components/ui/text';
 import { THEME } from '@/lib/theme';
+import { A2uiRenderer } from './A2uiRenderer';
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -116,6 +118,13 @@ function ChatBubbleImpl({ message }: ChatBubbleProps) {
     [colorScheme]
   );
 
+  // 完成的助手消息才按 ```a2ui 块分段（卡片段原生渲染、文本段走 Markdown）；
+  // 流式中不解析——JSON 未闭合会导致闪烁，沿用「纯文本 + 光标」直到完成
+  const segments = useMemo(
+    () => (!isUser && !streaming ? parseA2uiBlocks(message.content) : null),
+    [isUser, streaming, message.content]
+  );
+
   return (
     <View className={isUser ? 'flex-row justify-end' : 'flex-row justify-start'}>
       {/* 气泡容器：用户用品牌蓝底，助手用卡片白底 + 描边，圆角朝说话人一侧收窄 */}
@@ -152,13 +161,23 @@ function ChatBubbleImpl({ message }: ChatBubbleProps) {
             {message.content}
           </Text>
         ) : (
-          // 助手消息：完成后的 Markdown 渲染（模型按提示词要求用 Markdown 排版）
-          <Markdown
-            colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
-            mergeStyle
-            style={markdownStyle}>
-            {message.content}
-          </Markdown>
+          // 助手消息：内容按 a2ui 块分段——文本段走 Markdown，卡片段原生渲染；
+          // 无块时只有一个文本段，行为与原有 Markdown 渲染一致
+          <View className="gap-1.5">
+            {segments?.map((segment, i) =>
+              segment.kind === 'text' ? (
+                <Markdown
+                  key={i}
+                  colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
+                  mergeStyle
+                  style={markdownStyle}>
+                  {segment.text}
+                </Markdown>
+              ) : (
+                <A2uiRenderer key={i} ui={segment.ui} />
+              )
+            )}
+          </View>
         )}
         {/* 请求失败：正文下方补一行失败提示 */}
         {failed && (
