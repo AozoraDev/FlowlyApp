@@ -119,7 +119,7 @@
 | 持久化         | `supabase/aiChats.ts`、`supabase/aiMessages.ts`、迁移 `20260803000000_ai_chats_rls.sql` + `20260804000000_ai_messages_token_usage.sql`                             |
 | 页面           | `app/ai-agent/index.tsx`（会话列表）、`app/ai-agent/[chatId].tsx`（单段对话）、`app/not-config-model.tsx`（引导页）                                                |
 | 组件           | `components/ai-agent/` —— `ChatBubble`、`ChatInputBar`、`ChatRow`、`ConfigureModelButton`、`A2uiRenderer`                                                          |
-| A2UI 卡片      | `ai/lib/a2ui.ts`（zod schema + `parseA2uiBlocks`）、`ai/lib/a2uiPresets.ts`（代码拼装汇总卡）、`components/ai-agent/A2uiRenderer.tsx`（原生卡片渲染器）                   |
+| A2UI 卡片      | `ai/lib/a2ui.ts`（zod schema + `parseA2uiBlocks`）、`ai/lib/a2uiPresets.ts`（代码拼装汇总卡）、`components/ai-agent/A2uiRenderer.tsx`（原生卡片渲染器）            |
 | 入口           | `components/bar/BottomBar.tsx` —— AI-Agent tab（中间，登录后展示）                                                                                                 |
 
 **逻辑**

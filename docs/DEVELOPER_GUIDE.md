@@ -108,19 +108,19 @@
 
 ### 6. AI-Agent chat — persisted multi-turn chat, streaming + tools (read & write)
 
-| Feature               | Files                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| System prompt         | `ai/prompt/systemPrompt.ts` (`getSystemPrompt`, `localDateStr`, bilingual zh/en template strings)                                                                  |
-| Chat primitives / SSE | `ai/lib/chat.ts` (`parseChunk`, `accumulateToolCalls`, `buildChatMessages`, `condenseHistory`, `HISTORY_WINDOW`, `truncateTitle`, `tokenUsageSchema`, zod schemas) |
-| Streaming transport   | `ai/lib/chatStream.ts` (`streamChatCompletion` — SSE over `expo/fetch`, `include_usage` token reporting; `buildChatBody`)                                          |
-| Agent loop            | `ai/lib/agent.ts` (`runAgentChat` → `{content, usage}`, `MAX_TOOL_ROUNDS`, `DEFAULT_MAX_TOKENS`)                                                                   |
-| Tools                 | `ai/lib/tools.ts` (`getChatTools`, `runTool`, `isQueryTool`, `isWriteTool`, `isHelpTool`)                                                                          |
-| Query hook            | `ai/hooks/useChat.ts` (`useChat`)                                                                                                                                  |
-| Persistence           | `supabase/aiChats.ts`, `supabase/aiMessages.ts`, migrations `20260803000000_ai_chats_rls.sql` + `20260804000000_ai_messages_token_usage.sql`                       |
-| Screens               | `app/ai-agent/index.tsx` (list), `app/ai-agent/[chatId].tsx` (chat), `app/not-config-model.tsx` (guide)                                                            |
-| Components            | `components/ai-agent/` — `ChatBubble`, `ChatInputBar`, `ChatRow`, `ConfigureModelButton`, `A2uiRenderer`                                                           |
+| Feature               | Files                                                                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| System prompt         | `ai/prompt/systemPrompt.ts` (`getSystemPrompt`, `localDateStr`, bilingual zh/en template strings)                                                                       |
+| Chat primitives / SSE | `ai/lib/chat.ts` (`parseChunk`, `accumulateToolCalls`, `buildChatMessages`, `condenseHistory`, `HISTORY_WINDOW`, `truncateTitle`, `tokenUsageSchema`, zod schemas)      |
+| Streaming transport   | `ai/lib/chatStream.ts` (`streamChatCompletion` — SSE over `expo/fetch`, `include_usage` token reporting; `buildChatBody`)                                               |
+| Agent loop            | `ai/lib/agent.ts` (`runAgentChat` → `{content, usage}`, `MAX_TOOL_ROUNDS`, `DEFAULT_MAX_TOKENS`)                                                                        |
+| Tools                 | `ai/lib/tools.ts` (`getChatTools`, `runTool`, `isQueryTool`, `isWriteTool`, `isHelpTool`)                                                                               |
+| Query hook            | `ai/hooks/useChat.ts` (`useChat`)                                                                                                                                       |
+| Persistence           | `supabase/aiChats.ts`, `supabase/aiMessages.ts`, migrations `20260803000000_ai_chats_rls.sql` + `20260804000000_ai_messages_token_usage.sql`                            |
+| Screens               | `app/ai-agent/index.tsx` (list), `app/ai-agent/[chatId].tsx` (chat), `app/not-config-model.tsx` (guide)                                                                 |
+| Components            | `components/ai-agent/` — `ChatBubble`, `ChatInputBar`, `ChatRow`, `ConfigureModelButton`, `A2uiRenderer`                                                                |
 | A2UI cards            | `ai/lib/a2ui.ts` (zod schema + `parseA2uiBlocks`), `ai/lib/a2uiPresets.ts` (deterministic summary cards), `components/ai-agent/A2uiRenderer.tsx` (native card renderer) |
-| Entry                 | `components/bar/BottomBar.tsx` — AI-Agent tab (middle, login-gated)                                                                                                |
+| Entry                 | `components/bar/BottomBar.tsx` — AI-Agent tab (middle, login-gated)                                                                                                     |
 
 **Logic**
 
