@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,7 @@ import { useAppToast } from '@/components/ui-preSettings/Toast';
 import { Text } from '@/components/ui/text';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { queryClient } from '@/lib/queryClient';
-import { getSectionSummaries } from '@/supabase/items';
+import { getSectionSummary } from '@/supabase/items';
 import { deleteSectionWithItems, listSections, updateSectionSelected } from '@/supabase/sections';
 import type { SectionSummary, SectionsPage } from '@/supabase/types';
 
@@ -52,30 +52,35 @@ export default function Index() {
   const sections = pageData?.sections;
   const sectionsTotal = pageData?.total;
 
-  // 拉取当前用户各项目的收支汇总（服务端聚合：一次请求返回全部项目的收入/支出/结余），
-  // 替代原先全量拉取明细投影再客户端分组求和，流水量大时只传 N 行汇总而非全量明细
-  const { data: summaries } = useQuery({
-    queryKey: ['sectionSummaries', userId],
-    queryFn: async () => {
-      // enabled 已保证 userId 非空，此处兜底守卫避免传入 undefined
-      if (!userId) throw new Error('user not logged in');
-      return getSectionSummaries(userId);
-    },
-    enabled: !!userId,
-  });
+  // 按当前页各项目逐条拉取收支汇总（复用明细页 SummaryCard 的 getSectionSummary RPC），
+  // 数字与明细页顶部汇总卡保持一致；无明细的项目取不到映射时回退全 0
+  const sectionSummaryQueries = useMemo(
+    () =>
+      (sections ?? []).map((s) => ({
+        queryKey: ['itemSummary', userId, s.id] as const,
+        queryFn: async () => {
+          if (!userId) throw new Error('user not logged in');
+          return getSectionSummary(userId, s.id);
+        },
+        enabled: !!userId,
+      })),
+    [sections, userId]
+  );
+  const sectionSummaryResults = useQueries({ queries: sectionSummaryQueries });
 
-  // 把服务端聚合结果映射为 sectionId -> 汇总，供渲染每条项目卡时按 id 取出；
-  // 无明细的项目在聚合结果里缺席，取不到映射时回退全 0
+  // 把各查询结果映射为 sectionId -> 汇总，供渲染每条项目卡时按 id 取出
   const summariesBySection = useMemo(() => {
     const map = new Map<number, SectionSummary>();
-    for (const row of summaries ?? []) map.set(row.section_id, row);
+    for (const [i, result] of sectionSummaryResults.entries()) {
+      if (result.data) map.set(sections![i].id, result.data);
+    }
     return map;
-  }, [summaries]);
+  }, [sectionSummaryResults, sections]);
 
-  // 每次回到首页刷新各项目汇总：明细页新增/删除后，返回时让各项目汇总同步更新
+  // 每次回到首页刷新各项目汇总：明细页新增/删除后，返回时让各项目卡内 MiniSummary 同步更新
   useFocusEffect(
     useCallback(() => {
-      queryClient.invalidateQueries({ queryKey: ['sectionSummaries', userId] });
+      queryClient.invalidateQueries({ queryKey: ['itemSummary', userId] });
     }, [userId])
   );
 
@@ -119,7 +124,7 @@ export default function Index() {
       toast.success(t('home.deleteSuccess'));
       // 项目被删时其全部明细一并删除，sections 与各项目汇总缓存都需刷新
       queryClient.invalidateQueries({ queryKey: ['sections', userId] });
-      queryClient.invalidateQueries({ queryKey: ['sectionSummaries', userId] });
+      queryClient.invalidateQueries({ queryKey: ['itemSummary', userId] });
     },
     onError: (err) => {
       console.error(err);
